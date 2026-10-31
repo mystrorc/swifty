@@ -13,63 +13,102 @@
 
 ## Features & Highlights
 
-Swifty ([`mystrorc/swifty`](https://github.com/mystrorc/swifty)) is an opinionated, highly refined desktop shell built with Rust and Amane for the Niri Wayland compositor:
+Swifty ([`mystrorc/swifty`](https://github.com/mystrorc/swifty)) is an opinionated, highly refined desktop shell built with Rust and Amane for the Niri Wayland compositor. While originally based on Suzuha, Swifty introduces **over 20,000 lines of brand-new subsystems, native hardware managers, and cross-application integrations** that do not exist in upstream:
 
-- **Dynamic Network Tray Icon & Spaced System Tray (`src/bar/system.rs`):**
-  - **Dynamic Link Icon:** Automatically detects the active connection state via NetworkManager/Amane services. Displays an Ethernet LAN icon (`󰈀`) when wired, Wi-Fi (``) when wireless, and disconnected (`󰤭`) when offline.
-  - **Balanced Icon Spacing:** Fixed previous glyph crowding between Wi-Fi and Bluetooth with dedicated 18px icon bounding slots and an explicit 10px visual gap inside the system tray pill.
-- **Top Bar Settings Pill & Pulldown Panel (`src/overlay/settings_menu.rs`, `src/bar/workspaces.rs`):**
-  - **Settings Bar Pill (`󰒓`):** Positioned on the top-left immediately to the right of the distro logo, styled with a 32px height flush capsule.
-  - **Animated Liquid Settings Pulldown:** Clicking the pill drops down an interactive preferences panel with category subtabs:
-    - **Appearance:** Color Mode (Auto / Light / Dark), Animation Speed (0.5× / 1.0× / 1.5× / 2.0×), Wallpaper Transitions (Circle / Wipe / Wave / Fade), Transparency, and Shake-to-Find cursor toggles.
-    - **Bar:** Toggle Distro Logo, System Tray, Power Button pills, 24-Hour time, seconds, and click-outside dismissal.
-    - **Launcher:** Toggle command mode, descriptions, application icons, query memory, and close-on-launch.
-    - **Input:** Touchpad tap-to-click, natural scrolling, disable-while-typing, flat mouse acceleration, and left-handed mode.
-    - **Integrations:** COSMIC, Zed Editor, GTK 3 & 4, and Alacritty terminal color synchronization.
-    - **Full Settings Shortcut:** One-click launcher to open the complete multi-window Settings app.
-- **Flush Top Bar (`y = 0` Edge Alignment):**
-  - Top bar pills and buttons sit flush against the top screen edge with standardized 32px height, ensuring zero dead space at the top of displays.
-- **Conditional Home Assistant Smart Home Pill & Flyout (`src/bar/home_assistant.rs`, `src/overlay/home_assistant.rs`):**
-  - **Conditional Bar Pill (`󰌵`):** Positioned immediately to the right of the battery pill; dynamically shown only when connected to the home network and Home Assistant is reachable. Displays an illuminated icon and active light count badge when lights are on.
-  - **Quick Action:** Right-click directly on the bar pill turns off all lights instantly without opening any menu.
-  - **Liquid Popover Flyout:** Left-clicking drops down an animated liquid flyout with live status, optimistic toggle switches for all discovered Home Assistant light entities, and an "All Off" shortcut.
-  - **Configuration:** Credentials securely stored in `~/.config/amane/homeassistant.json`.
-- **Redesigned Calendar & 7-Day Weather Pulldown (`src/overlay/control_center/calendar.rs`):**
-  - Expanded Control Center dropdown (820px) featuring a live 7-day weather forecast powered by Open-Meteo.
-  - Large digital clock card with day-of-week and month indicators.
-  - Local agenda and persistent reminders list backed by `~/.local/state/amane/reminders.json`.
-  - Monthly calendar grid with circular today highlights and active event indicator dots.
-- **Unified Media, Audio & Equalizer Tab (`src/overlay/control_center/media.rs`, `src/overlay/control_center/audio_eq.rs`):**
-  - Combined Now Playing and Audio & EQ into a unified interface.
-  - Left card: Compact volume and microphone faders side-by-side with PipeWire output sink selector and Wiremix integration directly underneath (input selector removed).
-  - Right card: Now Playing with album art, live Cava audio visualizer, seek waveform, and playback controls on top, and 10-band parametric equalizer on the bottom.
-  - Calibrated AutoEQ profiles for **Sony WH-1000XM3** and Razer Kraken TE, with an expanded `[-15.0 dB, +15.0 dB]` fader range.
-- **System Info & Hardware Overview (`src/settings/pages/user.rs`):**
-  - Displays a Hero System Card with the distribution logo, OS name, kernel release, dynamic system uptime, and CPU summary.
-  - Includes right-aligned hardware specification rows for Operating System, Kernel Release, System Uptime, Installed Packages (`rpm`), Processor, Total Memory, and Graphics Adapter (`lspci`), positioned directly above the lock screen User Profile configuration.
-- **Input & Per-Device Pointer Configuration (`src/settings/pages/input.rs`):**
-  - Dedicated **Input (`󰌌`)** tab in Amane Settings for keyboard, touchpad, mouse, and trackball configuration.
-  - **Keyboard:** Layout, repeat rate (chars/sec), and repeat delay (ms).
-  - **Touchpad:** Natural scrolling, tap-to-click, and disable-while-typing toggles.
-  - **Per-Device Mouse & Trackball Controls:** Target pointing device selector (`Logitech G Pro (Mouse)`, `Logitech ERGO M575 (Trackball)`, and `All Mice (Global Default)`) with independent pointer speed sliders, flat acceleration toggles, left-handed mode, polling rate (`125Hz`–`1000Hz`), and hardware sensor DPI (`400`–`3200 DPI`) configured live via Niri (`~/.config/niri/amane.kdl`) and `solaar`.
-- **Quick Appearance Controls (Utility Panel):**
-  - Dedicated **Appearance (`󰏘`)** tab in the Status Bar's Utility overlay (`amane ipc call utility show appearance`).
-  - **Colors Subtab:** Mode picker (Auto / Light / Dark), Wallpaper accent toggle, 7 curated accent swatches, and 34 full color schemes in an expandable menu.
-  - **Cursor Subtab:** 4 cursor size presets (24px, 32px, 48px, 64px), Shake to Find Cursor toggle, and a picker for 10 popular cursor themes.
-  - **Fonts Subtab:** Live typography switcher supporting 10 shell font family choices.
-- **Dynamic Theming & Desktop Integrations:**
-  - **Alacritty Terminal:** Native configuration generation writing to `~/.config/alacritty/amane-colors.toml` with instant inotify live reloading.
-  - **GTK 3 & GTK 4:** Dynamic CSS symlinks (`~/.config/gtk-3.0/gtk.css` and `~/.config/gtk-4.0/gtk.css`), color-scheme preference, and matching GNOME interface accent-color.
-  - **Zed Editor:** Custom theme generation at `~/.config/zed/themes/amane.json` with dynamic syntax highlighting and UI token mapping.
-  - **COSMIC & Iced Applications:**
-    - Generates COSMIC theme builder and palette files in `~/.config/cosmic/` (supporting both v1 and v2 schemas).
-    - Features an embedded, native D-Bus `com.system76.CosmicSettingsDaemon` service bridge inside the shell providing `WatchConfig`/`WatchState` and broadcasting `Changed` signals, allowing running Iced/COSMIC apps (`cosmic-files`, `cosmic-edit`, etc.) to reload dynamically on the fly without restarting.
-- **Native Monitor Manager & Safety Guard (`src/monitors.rs`):**
-  - Integrated Rust background service (`amane::Service`) that monitors Wayland/Niri output states via `event-stream` with 0 extra processes and ~0% CPU.
+---
+
+### 1. New Subsystems & Hardware Management (Built from Scratch)
+
+- **Native Home Assistant Smart Home Integration (`src/bar/home_assistant.rs`, `src/overlay/home_assistant.rs`):**
+  - **Conditional Bar Pill (`󰌵`):** Positioned immediately to the right of the battery pill; dynamically appears only when connected to the local home network and Home Assistant is reachable. Features an illuminated bulb and dynamic badge indicating active lights.
+  - **Quick Action:** Right-clicking the pill turns off all lights instantly without opening any menu.
+  - **Liquid Popover Flyout:** Left-clicking opens a live smart home control panel with optimistic state switches for discovered light and switch entities, plus an "All Off" master toggle.
+  - **Secure Storage:** Token and instance URL stored in `~/.config/amane/homeassistant.json`.
+
+- **Elephant Search, Calculation & Window Engine (`src/overlay/launcher/elephant.rs`):**
+  - Native Unix-socket client connecting the launcher directly to the **Elephant** Go daemon (`$XDG_RUNTIME_DIR/elephant/elephant.sock`).
+  - **Inline Math / Calculator (`calc` provider):** Type mathematical equations (e.g. `24 * 16`, `sqrt(144)`, `15% of 80`) and receive instant evaluated results with copy-to-clipboard on Enter.
+  - **Window Switcher (`windows` provider):** Search and jump straight to open windows across all Niri workspaces.
+  - **Clipboard History (`clipboard` provider):** Search and paste from clipboard history directly via `c ` or `clip:`.
+  - **Web Search Integration (`websearch` provider):** Quick web searches triggered by `?`, `w `, or `web:`.
+
+- **Adaptive Floating Desktop Widgets (`src/floating/windows.rs`):**
+  - Background desktop widgets (calendar, clock, weather) listen live to Niri window geometry. When an application is tiled or snapped half-screen, the widgets automatically slide to the unoccupied side of the screen so information is never covered.
+
+- **10-Band Graphic Audio Equalizer & DSP Engine (`src/overlay/control_center/audio_eq.rs`):**
+  - Native PipeWire parametric/graphic DSP engine integrated directly into the Control Center.
+  - Real-time `[-15.0 dB, +15.0 dB]` frequency faders with live audio filter nodes.
+  - Curated hardware presets specifically tuned for the **Sony WH-1000XM3** and **Razer Kraken TE**.
+  - Mixer shortcut invokes `wiremix` instead of heavy legacy `pavucontrol`.
+
+- **Native Graphical Display & Monitor Layout Manager (`src/settings/pages/monitors.rs`, `src/monitors.rs`):**
+  - Replaces external shell scripts with a native visual canvas to arrange, scale, rotate, and set refresh rates for displays.
   - **Undocked Safety Guard:** Automatically detects when the laptop is disconnected from a dock or boots without an external display, guaranteeing `eDP-1` is powered ON at scale `2.0` (`3200x1800@59.982`), preventing black screen lockouts.
   - **Docked Consistency Guard:** Matches external displays by their hardware EDID identity (Make/Model/Serial) rather than transient connector names (`DP-5` vs `DP-1`), preventing USB-C/Thunderbolt dock re-indexing from resetting your scale or layout.
-  - **Clamshell Mode Support:** Integrated with Niri's `switch-events` to cleanly power off the laptop display when the lid is closed while docked, and automatically restore it when opened or undocked.
-  - **IPC Integration:** `amane ipc call monitors sync` for instant layout synchronization.
+  - **Clamshell Mode:** Powers off laptop display when lid is closed while docked, and restores it when opened.
+  - **Dynamic Window Rescue:** Open windows automatically migrate to remaining active monitors when a display is disconnected or disabled.
+
+- **Monitor Backlight & Brightness Subsystem:**
+  - Integrated slider controls and IPC shims supporting both laptop internal backlight (`brightnessctl`) and external desktop monitors via DDC/CI.
+
+- **Shake-to-Find Cursor (`src/shake_cursor.rs`):**
+  - macOS-style cursor shake-to-grow detection with custom sensitivity and dampening physics so you never lose your pointer on high-resolution displays.
+
+- **Power Devices & Battery Health (`src/overlay/power_devices.rs`):**
+  - Live UPower integration tracking battery charge status, discharge rates, connected Bluetooth peripheral levels, and system power profiles (Power Saver, Balanced, Performance).
+
+- **Kanata Keyboard Remapper & Input Device Settings (`src/settings/pages/kanata.rs`, `src/settings/pages/input.rs`):**
+  - Graphical configuration interface for Kanata keyboard layers.
+  - Per-device pointer controls: independent speed sliders, flat acceleration toggles, natural scrolling, and sensor DPI switching for trackballs and mice.
+
+- **Default Applications Manager (`src/settings/pages/default_apps.rs`):**
+  - Graphical XDG MIME handler configuration for default web browsers, file managers, terminal emulators, and text editors.
+
+- **Launcher Key Promoter (`src/overlay/launcher/shortcuts.rs`):**
+  - Actively parses your Niri keybindings and displays the exact keyboard shortcut chord (using `Super+...`) alongside app search results, teaching you shortcuts as you work.
+
+---
+
+### 2. Live Dynamic Ecosystem Theming Bridges (`src/integrations/`)
+
+Swifty acts as a dynamic theming hub for your entire desktop. Changing a wallpaper or color scheme generates and hot-reloads matching themes across third-party apps:
+
+- **Flux File Manager (`src/integrations/flux.rs`, `flux.css`):**
+  - Over 1,600 lines of custom CSS injecting frosted-glass transparency, matching accent borders, and dynamic color tokens.
+- **Strata (`src/integrations/strata.rs`):**
+  - Real-time synchronization of system color schemes and corner rounding into Strata.
+- **COSMIC & Iced Applications (`src/integrations/cosmic.rs`):**
+  - Embedded native D-Bus `com.system76.CosmicSettingsDaemon` service bridge broadcasting live theme changes to running COSMIC apps (`cosmic-files`, `cosmic-edit`), with 85% background glass transparency.
+- **Zed Editor (`src/integrations/zed.rs`):**
+  - Generates custom matching JSON color schemes at `~/.config/zed/themes/amane.json`.
+- **Terminals (Alacritty & Ghostty) (`src/integrations/terminal.rs`):**
+  - Generates palette definitions in `~/.config/alacritty/amane-colors.toml` and Ghostty configs with instant live reloading.
+- **GTK 3 & GTK 4 (`src/integrations/gtk.rs`):**
+  - Automatically updates GTK CSS symlinks, color-scheme preferences, and accent tokens.
+
+---
+
+### 3. Top Bar, Layout & UI Refinements
+
+- **Flush Top Alignment (`y = 0` Edge Alignment):**
+  - Top bar spacing has been eliminated, allowing capsules and pills to sit flush against the top screen edge with a clean 32px height.
+- **Top Bar Quick Settings Pill & Pulldown (`src/overlay/settings_menu.rs`, `src/bar/workspaces.rs`):**
+  - Dedicated Settings icon capsule (`󰒓`) on the top-left next to the distro logo.
+  - Drops down an animated liquid preferences menu with category subtabs (Appearance, Bar, Launcher, Input, Integrations) and animation speed sliders (0.5× / 1.0× / 1.5× / 2.0×) for instant tweaks without launching the full Settings window.
+- **Dynamic Network Tray Icon & Spaced System Tray (`src/bar/system.rs`):**
+  - Automatically switches between an Ethernet LAN icon (`󰈀`) when wired and Wi-Fi (``) when wireless.
+  - Balanced 18px icon bounding slots with a 10px visual gap to prevent glyph crowding.
+- **Redesigned Calendar & 7-Day Weather Pulldown (`src/overlay/control_center/calendar.rs`):**
+  - 820px dropdown featuring 7-day Open-Meteo forecasts, large digital clock, monthly calendar grid, and persistent agenda reminders (`~/.local/state/amane/reminders.json`).
+- **Unified Media, Audio & Equalizer Tab (`src/overlay/control_center/media.rs`):**
+  - Combines Now Playing, album art, live Cava visualizer, waveform seeking, volume faders, sink picker, and the 10-band EQ into a single screen.
+- **System Info & Hardware Overview (`src/settings/pages/user.rs`):**
+  - Hero System Card displaying distro logo, kernel release, uptime, package counts, CPU specs, RAM usage, and GPU info (`lspci`).
+- **Settings Tab Streamlining:**
+  - Removed redundant tabs (*About*, *System Info*, *Behavior*, *Plugins*).
+  - Moved Animation Speed and Wallpaper transitions directly into the Appearance tab and Quick Settings pulldown.
+
+---
 
 ## Installation & Running
 
