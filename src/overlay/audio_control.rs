@@ -29,7 +29,7 @@ const GAP: f32 = 12.0;
 const CARD_PADDING: f32 = 14.0;
 const CARD_INNER_WIDTH: f32 = INNER_WIDTH - CARD_PADDING * 2.0;
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, PartialEq)]
 pub struct AudioDevice {
     pub id: u32,
     pub name: String,
@@ -55,9 +55,13 @@ impl Service for AudioDevices {
 
     fn update(&mut self) -> bool {
         let (sinks, sources) = query_devices();
-        self.sinks = sinks;
-        self.sources = sources;
-        true
+        if self.sinks != sinks || self.sources != sources {
+            self.sinks = sinks;
+            self.sources = sources;
+            true
+        } else {
+            false
+        }
     }
 }
 

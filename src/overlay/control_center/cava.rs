@@ -26,7 +26,7 @@ pub struct Cava {
 
 /*
  * cava stays warm while something plays, so opening the panel shows bars
- * at once; levels are only stored while the panel is open, since every
+ * at once; levels are only stored while the media tab is open, since every
  * store is a redraw
  */
 impl Service for Cava {
@@ -49,7 +49,10 @@ impl Service for Cava {
                 }
 
                 if open() {
-                    Self::write().levels = parse(&line);
+                    let new_levels = parse(&line);
+                    if *Self::read().levels() != new_levels {
+                        Self::write().levels = new_levels;
+                    }
                 }
             }
 
@@ -69,11 +72,12 @@ impl Cava {
 }
 
 fn open() -> bool {
-    Overlay::read().control_center.shown
+    let overlay = Overlay::read();
+    overlay.control_center.shown && overlay.center_tab == 1
 }
 
 fn wanted() -> bool {
-    open() || Media::read().playing()
+    open() && Media::read().playing()
 }
 
 // a line reads like "12;40;100;...;" with levels from 0 to 100

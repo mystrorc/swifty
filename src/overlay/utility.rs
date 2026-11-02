@@ -270,12 +270,22 @@ pub fn close_password(overlay: &mut Overlay) {
 
 // remembers which control the pointer is on, for hover colors
 pub fn hover(name: String, inside: bool) {
-    let mut overlay = Overlay::write();
+    let needs_change = {
+        let overlay = Overlay::read();
+        if inside {
+            overlay.hovered.as_ref() != Some(&name)
+        } else {
+            overlay.hovered.as_ref() == Some(&name)
+        }
+    };
+    if needs_change {
+        let mut overlay = Overlay::write();
 
-    if inside {
-        overlay.hovered = Some(name);
-    } else if overlay.hovered.as_ref() == Some(&name) {
-        overlay.hovered = None;
+        if inside {
+            overlay.hovered = Some(name);
+        } else if overlay.hovered.as_ref() == Some(&name) {
+            overlay.hovered = None;
+        }
     }
 }
 

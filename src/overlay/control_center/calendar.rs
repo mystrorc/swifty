@@ -877,11 +877,21 @@ fn cell(
         .radius(8.0)
         .fill(fill)
         .on_hover(move |inside| {
-            let mut o = Overlay::write();
-            if inside {
-                o.hovered = Some(hover_name.clone());
-            } else if o.hovered.as_ref() == Some(&hover_name) {
-                o.hovered = None;
+            let needs_change = {
+                let o = Overlay::read();
+                if inside {
+                    o.hovered.as_ref() != Some(&hover_name)
+                } else {
+                    o.hovered.as_ref() == Some(&hover_name)
+                }
+            };
+            if needs_change {
+                let mut o = Overlay::write();
+                if inside {
+                    o.hovered = Some(hover_name.clone());
+                } else if o.hovered.as_ref() == Some(&hover_name) {
+                    o.hovered = None;
+                }
             }
         })
         .align_child(Center, Center)
@@ -950,11 +960,21 @@ fn nav_button(
         .cursor(Pointer)
         .on_click(move |_| Overlay::write().calendar_month += step)
         .on_hover(move |inside| {
-            let mut o = Overlay::write();
-            if inside {
-                o.hovered = Some(hover_key.clone());
-            } else if o.hovered.as_ref() == Some(&hover_key) {
-                o.hovered = None;
+            let needs_change = {
+                let o = Overlay::read();
+                if inside {
+                    o.hovered.as_ref() != Some(&hover_key)
+                } else {
+                    o.hovered.as_ref() == Some(&hover_key)
+                }
+            };
+            if needs_change {
+                let mut o = Overlay::write();
+                if inside {
+                    o.hovered = Some(hover_key.clone());
+                } else if o.hovered.as_ref() == Some(&hover_key) {
+                    o.hovered = None;
+                }
             }
         })
         .align_child(Center, Center)

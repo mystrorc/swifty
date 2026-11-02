@@ -92,9 +92,10 @@ impl Service for EqData {
                 } else {
                     apply_all_gains_to_node(id, &self.gains_10);
                 }
+                return true;
             }
         }
-        true
+        false
     }
 }
 

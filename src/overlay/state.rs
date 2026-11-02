@@ -415,6 +415,12 @@ impl Overlay {
     }
 
     pub fn hover_audio_control(inside: bool) {
+        {
+            let overlay = Self::read();
+            if overlay.audio_control.hovered == inside && (!inside || overlay.audio_control.was_hovered) {
+                return;
+            }
+        }
         let mut overlay = Self::write();
 
         overlay.audio_control.hovered = inside;
@@ -429,6 +435,12 @@ impl Overlay {
     }
 
     pub fn hover_control_center(inside: bool) {
+        {
+            let overlay = Self::read();
+            if overlay.control_center.hovered == inside && (!inside || overlay.control_center.was_hovered) {
+                return;
+            }
+        }
         let mut overlay = Self::write();
 
         overlay.control_center.hovered = inside;
@@ -443,6 +455,12 @@ impl Overlay {
     }
 
     pub fn hover_power_menu(inside: bool) {
+        {
+            let overlay = Self::read();
+            if overlay.power_menu.hovered == inside && (!inside || overlay.power_menu.was_hovered) {
+                return;
+            }
+        }
         let mut overlay = Self::write();
 
         overlay.power_menu.hovered = inside;
@@ -457,6 +475,12 @@ impl Overlay {
     }
 
     pub fn hover_utility(inside: bool) {
+        {
+            let overlay = Self::read();
+            if overlay.utility.hovered == inside && (!inside || overlay.utility.was_hovered) {
+                return;
+            }
+        }
         let mut overlay = Self::write();
 
         overlay.utility.hovered = inside;
@@ -471,6 +495,15 @@ impl Overlay {
     }
 
     pub fn hover_popup(id: u32, inside: bool) {
+        {
+            let overlay = Self::read();
+            if inside && overlay.hovered_popup == Some(id) {
+                return;
+            }
+            if !inside && overlay.hovered_popup != Some(id) {
+                return;
+            }
+        }
         let mut overlay = Self::write();
 
         if inside {
