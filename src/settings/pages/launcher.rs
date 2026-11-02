@@ -106,6 +106,12 @@ pub fn build(page: &mut Page) {
         "Click outside to dismiss",
         "Let clicks outside open panels close the current overlay",
     );
+    switch::add(
+        page,
+        "command_mixer",
+        "Mixer command",
+        "Show Mixer in command mode",
+    );
 
     page.end_group();
 }
