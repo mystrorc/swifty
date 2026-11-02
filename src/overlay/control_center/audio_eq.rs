@@ -79,24 +79,8 @@ impl Service for EqData {
         data
     }
 
-    fn interval() -> std::time::Duration {
-        std::time::Duration::from_millis(2000)
-    }
-
-    fn update(&mut self) -> bool {
-        if self.node_id.is_none() {
-            self.node_id = find_equalizer_node_id();
-            if let Some(id) = self.node_id {
-                if self.is_bypassed {
-                    apply_all_gains_to_node(id, &[0.0; 10]);
-                } else {
-                    apply_all_gains_to_node(id, &self.gains_10);
-                }
-                return true;
-            }
-        }
-        false
-    }
+    // only changes through user input
+    fn listen() {}
 }
 
 fn eq_state_path() -> String {
@@ -327,8 +311,9 @@ pub fn view(overlay: &Overlay, theme: &Theme, width: f32, height: f32) -> Rectan
     let gap: f32 = 10.0;
     let content_height = inner_height - header_height - gap;
 
-    let top_row = top_bar(overlay, theme, inner_width);
-    let content_row = body(theme, inner_width, content_height);
+    let eq = EqData::read();
+    let top_row = top_bar(overlay, theme, inner_width, eq.is_bypassed);
+    let content_row = body(theme, &eq, inner_width, content_height);
 
     let column = Column::new(children![top_row, content_row]).gap(gap);
 
@@ -346,9 +331,9 @@ pub fn view(overlay: &Overlay, theme: &Theme, width: f32, height: f32) -> Rectan
         .child(column)
 }
 
-fn top_bar(overlay: &Overlay, theme: &Theme, width: f32) -> Row {
+fn top_bar(overlay: &Overlay, theme: &Theme, width: f32, bypassed: bool) -> Row {
     let tabs = super::tabs(overlay, theme);
-    let bypass = bypass_button(theme);
+    let bypass = bypass_button(theme, bypassed);
 
     Row::new(children![tabs, bypass])
         .width(width)
@@ -356,9 +341,8 @@ fn top_bar(overlay: &Overlay, theme: &Theme, width: f32) -> Row {
         .align(Center)
 }
 
-pub fn bypass_button(theme: &Theme) -> Rectangle {
-    let eq = EqData::read();
-    let bypassed = eq.is_bypassed;
+pub fn bypass_button(theme: &Theme, bypassed: bool) -> Rectangle {
+
 
     let (icon, label, fill, text_color) = if bypassed {
         ("󰂱", "Bypassed", theme::with_opacity(theme.danger, 0.15), theme.danger)
@@ -389,7 +373,7 @@ pub fn bypass_button(theme: &Theme) -> Rectangle {
         .child(row)
 }
 
-fn body(theme: &Theme, width: f32, height: f32) -> Row {
+fn body(theme: &Theme, eq: &EqData, width: f32, height: f32) -> Row {
     let devices_width: f32 = 188.0;
     let separator_width: f32 = 1.0;
     let gap: f32 = 12.0;
@@ -402,7 +386,7 @@ fn body(theme: &Theme, width: f32, height: f32) -> Row {
         .height(height - 4.0)
         .fill(theme::with_opacity(theme.border, 0.5));
 
-    let eq_view = equalizer_view(theme, eq_width, height);
+    let eq_view = equalizer_view(theme, eq, eq_width, height);
 
     Row::new(children![devices_card, sep, eq_view])
         .gap(gap)
@@ -597,11 +581,9 @@ fn source_item(theme: &Theme, source: &AudioDevice, width: f32) -> Rectangle {
         .child(row)
 }
 
-fn equalizer_view(theme: &Theme, width: f32, height: f32) -> Column {
-    let eq = EqData::read();
-
+fn equalizer_view(theme: &Theme, eq: &EqData, width: f32, height: f32) -> Column {
     let preset_row = preset_selector(theme, &eq.active_preset, width);
-    let bands_grid = bands_row(theme, &eq, width, height - 32.0);
+    let bands_grid = bands_row(theme, eq, width, height - 32.0);
 
     Column::new(children![preset_row, bands_grid])
         .width(width)

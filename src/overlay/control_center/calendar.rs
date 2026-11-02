@@ -48,6 +48,9 @@ impl Service for RemindersData {
             input_text: String::new(),
         }
     }
+
+    // only changes through user input
+    fn listen() {}
 }
 
 fn reminders_path() -> PathBuf {

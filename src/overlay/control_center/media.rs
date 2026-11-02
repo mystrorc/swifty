@@ -115,7 +115,7 @@ fn eq_section(theme: &Theme, width: f32, height: f32) -> Column {
 
     let top_bar = Row::new(children![
         audio_eq::preset_selector(theme, &eq.active_preset, 240.0),
-        audio_eq::bypass_button(theme),
+        audio_eq::bypass_button(theme, eq.is_bypassed),
     ])
     .width(width)
     .justify(SpaceBetween)
