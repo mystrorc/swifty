@@ -174,8 +174,6 @@ fn ensure_windows_accessible(active_outputs: &[String]) {
         .map(|s| s.as_str())
         .unwrap_or("eDP-1");
 
-    let is_single_monitor = active_outputs.len() == 1;
-
     let mut prev_map = PREV_WORKSPACES.lock().unwrap();
 
     for win in windows {
@@ -200,10 +198,8 @@ fn ensure_windows_accessible(active_outputs: &[String]) {
             Some(po) => !active_outputs.iter().any(|a| a == po) && !is_act,
             None => false,
         };
-        // 3. In single monitor mode, all windows must be on the active workspace
-        let single_monitor_inactive = is_single_monitor && !is_act;
 
-        if not_on_active_output || prev_output_turned_off || single_monitor_inactive {
+        if not_on_active_output || prev_output_turned_off {
             let _ = Command::new("niri")
                 .args(["msg", "action", "move-window-to-monitor", "--id", &win_id.to_string(), primary_target])
                 .output();
