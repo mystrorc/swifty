@@ -164,15 +164,17 @@ fn sync_appearance(dot_obsidian: &Path, accent_hex: &str) {
         changed = true;
     }
 
-    let snippets = config.entry("enabledCssSnippets").or_insert_with(|| serde_json::json!([]));
-    if let Some(arr) = snippets.as_array_mut() {
-        if !arr.iter().any(|v| v.as_str() == Some("amane")) {
-            arr.push(serde_json::json!("amane"));
+    if let Some(obj) = config.as_object_mut() {
+        let snippets = obj.entry("enabledCssSnippets").or_insert_with(|| serde_json::json!([]));
+        if let Some(arr) = snippets.as_array_mut() {
+            if !arr.iter().any(|v| v.as_str() == Some("amane")) {
+                arr.push(serde_json::json!("amane"));
+                changed = true;
+            }
+        } else {
+            *snippets = serde_json::json!(["amane"]);
             changed = true;
         }
-    } else {
-        *snippets = serde_json::json!(["amane"]);
-        changed = true;
     }
 
     if changed {
