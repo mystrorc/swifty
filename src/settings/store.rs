@@ -134,6 +134,7 @@ const DEFAULTS: [(&str, &str); 111] = [
     ("integration_cosmic", "true"),
     ("integration_zed", "true"),
     ("integration_strata", "true"),
+    ("integration_obsidian", "true"),
 ];
 
 /*

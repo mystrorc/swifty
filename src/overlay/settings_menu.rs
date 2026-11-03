@@ -504,7 +504,16 @@ fn integrations_tab(theme: &Theme, width: f32) -> Column {
         "integration_terminal",
     );
 
-    Column::new(children![cosmic_row, zed_row, strata_row, gtk_row, term_row]).gap(8.0)
+    let obsidian_row = row_switch(
+        theme,
+        width,
+        "Obsidian Theme Sync",
+        "Sync palette colors to Obsidian vault snippets",
+        settings.flag("integration_obsidian"),
+        "integration_obsidian",
+    );
+
+    Column::new(children![cosmic_row, zed_row, strata_row, gtk_row, term_row, obsidian_row]).gap(8.0)
 }
 
 // ---------------- Helpers: Switch & Choice Rows ----------------

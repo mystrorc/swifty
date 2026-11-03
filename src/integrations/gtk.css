@@ -30,6 +30,34 @@
 @define-color popover_fg_color @FOREGROUND@;
 @define-color path_bar_bg_color @SELECTION@;
 
+@define-color ox_title @SURFACE@;
+@define-color ox_title_backdrop @SURFACE@;
+@define-color ox_chrome @SURFACE@;
+@define-color ox_bg @BACKGROUND@;
+@define-color ox_sidebar @SURFACE@;
+@define-color ox_flyout @SURFACE@;
+@define-color ox_tooltip @SURFACE@;
+@define-color ox_card @BACKGROUND@;
+@define-color ox_field_bg @BACKGROUND@;
+@define-color ox_text @FOREGROUND@;
+@define-color ox_muted @MUTED@;
+@define-color ox_text_tertiary @MUTED@;
+@define-color ox_placeholder @MUTED@;
+@define-color ox_text_selection_bg @ACCENT@;
+@define-color ox_text_selection_fg @ON_ACCENT@;
+@define-color ox_accent @ACCENT@;
+@define-color ox_accent_hover @ACCENT@;
+@define-color ox_accent_pressed @ACCENT@;
+@define-color ox_on_accent @ON_ACCENT@;
+@define-color ox_hover alpha(@FOREGROUND@, 0.08);
+@define-color ox_pressed alpha(@FOREGROUND@, 0.12);
+@define-color ox_selected @SELECTION@;
+@define-color ox_border @BORDER@;
+@define-color ox_control_fill @SURFACE@;
+@define-color ox_control_fill_hover alpha(@FOREGROUND@, 0.08);
+@define-color ox_control_fill_pressed alpha(@FOREGROUND@, 0.12);
+@define-color ox_focus_outer @ACCENT@;
+
 * {
   -gtk-secondary-caret-color: @ACCENT@;
   color: @FOREGROUND@;
@@ -367,4 +395,34 @@ spinner:not(:checked) {
 
 spinner:checked {
   opacity: 1;
+}
+
+/* OpenXplorer Dynamic Theme Overrides */
+window.ox {
+  background-color: @headerbar_bg_color;
+  color: @theme_fg_color;
+}
+window.ox .sidebar,
+window.ox .sidebar list {
+  background-color: @headerbar_bg_color;
+  color: @theme_fg_color;
+}
+window.ox .folder-pane,
+window.ox columnview.files {
+  background-color: @window_bg_color;
+  color: @theme_fg_color;
+}
+window.ox .command-bar,
+window.ox .title-bar,
+window.ox headerbar {
+  background-color: @headerbar_bg_color;
+}
+window.ox columnview.files > header > button {
+  color: @theme_fg_color;
+}
+window.ox selection,
+window.ox selection:focus-within,
+window.ox .sidebar list > row:selected {
+  background-color: @accent_color;
+  color: @accent_fg_color;
 }

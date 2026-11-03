@@ -4,7 +4,7 @@ use super::super::page::Page;
 use super::super::{Confirm, Settings, Shown, switch};
 
 // the key, title, what the row says, and what turning it on does
-const INTEGRATIONS: [(&str, &str, &str, &str); 11] = [
+const INTEGRATIONS: [(&str, &str, &str, &str); 12] = [
     (
         "integration_gtk",
         "GTK",
@@ -70,6 +70,12 @@ const INTEGRATIONS: [(&str, &str, &str, &str); 11] = [
         "Zed Editor",
         "Theme for Zed editor",
         "This generates ~/.config/zed/themes/amane.json and updates ~/.config/zed/settings.json to use the dynamic theme.",
+    ),
+    (
+        "integration_obsidian",
+        "Obsidian",
+        "Theme snippet for Obsidian vaults",
+        "This writes generated dynamic amane CSS snippets into all configured Obsidian vaults and keeps them synchronized with the desktop wallpaper colors.",
     ),
 ];
 
