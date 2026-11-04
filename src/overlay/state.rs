@@ -23,7 +23,7 @@ pub struct Overlay {
 
     pub control_center: Panel,
 
-    // higher-level tab in the middle pulldown: 0 = System Monitor, 1 = Media, 2 = Calendar, 3 = Battery
+    // higher-level tab in the middle pulldown: 0 = Overview, 1 = System Monitor, 2 = Media, 3 = Settings, 4 = Power
     pub center_tab: usize,
 
     // sub-tab under Media: 0 = Now Playing, 1 = Audio & EQ
@@ -109,7 +109,7 @@ impl Service for Overlay {
             action_fills,
             bar_hovered: false,
             control_center: Panel::new(),
-            center_tab: 1,
+            center_tab: 0,
             control_tab: 0,
             launcher: Panel::new(),
             launcher_monitor: None,
@@ -233,25 +233,13 @@ impl Overlay {
         Self::write().app_menu.hide();
     }
 
+    #[allow(dead_code)]
     pub fn toggle_settings_menu(monitor: Option<&str>) {
-        let mut overlay = Self::write();
+        Self::toggle_center_section(3, monitor);
+    }
 
-        overlay.launcher.hide();
-        overlay.power_menu.hide();
-        overlay.app_menu.hide();
-        overlay.control_center.hide();
-        overlay.sysmon.hide();
-        overlay.power_devices.hide();
-        overlay.audio_control.hide();
-        overlay.home_assistant.hide();
-        utility::close(&mut overlay);
-
-        if overlay.settings_menu.shown {
-            overlay.settings_menu.hide();
-        } else {
-            overlay.set_active_monitor(monitor);
-            overlay.settings_menu.show();
-        }
+    pub fn toggle_settings(monitor: Option<&str>) {
+        Self::toggle_center_section(3, monitor);
     }
 
     #[allow(dead_code)]
@@ -292,14 +280,14 @@ impl Overlay {
 
     pub fn set_control_tab(tab: usize) {
         let mut overlay = Self::write();
-        overlay.center_tab = 1;
+        overlay.center_tab = 2;
         overlay.control_tab = tab;
     }
 
     pub fn open_control_tab(tab: usize, monitor: Option<&str>) {
         let mut overlay = Self::write();
         overlay.set_active_monitor(monitor);
-        overlay.center_tab = 1;
+        overlay.center_tab = 2;
         overlay.control_tab = tab;
         overlay.launcher.hide();
         overlay.app_menu.hide();
@@ -310,6 +298,24 @@ impl Overlay {
         overlay.audio_control.hide();
         overlay.home_assistant.hide();
         utility::close(&mut overlay);
+        overlay.control_center.show();
+    }
+
+    pub fn open_center_section(section: usize, monitor: Option<&str>) {
+        let mut overlay = Self::write();
+
+        overlay.launcher.hide();
+        overlay.app_menu.hide();
+        overlay.settings_menu.hide();
+        overlay.power_menu.hide();
+        overlay.sysmon.hide();
+        overlay.power_devices.hide();
+        overlay.audio_control.hide();
+        overlay.home_assistant.hide();
+        utility::close(&mut overlay);
+
+        overlay.set_active_monitor(monitor);
+        overlay.center_tab = section;
         overlay.control_center.show();
     }
 
@@ -336,19 +342,19 @@ impl Overlay {
     }
 
     pub fn toggle_control_center(monitor: Option<&str>) {
-        Self::toggle_center_section(1, monitor);
-    }
-
-    pub fn toggle_sysmon(monitor: Option<&str>) {
-        Self::toggle_center_section(0, monitor);
-    }
-
-    pub fn toggle_calendar(monitor: Option<&str>) {
         Self::toggle_center_section(2, monitor);
     }
 
+    pub fn toggle_sysmon(monitor: Option<&str>) {
+        Self::toggle_center_section(1, monitor);
+    }
+
+    pub fn toggle_calendar(monitor: Option<&str>) {
+        Self::toggle_center_section(0, monitor);
+    }
+
     pub fn toggle_power_devices(monitor: Option<&str>) {
-        Self::toggle_center_section(3, monitor);
+        Self::toggle_center_section(4, monitor);
     }
 
     #[allow(dead_code)]

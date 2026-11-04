@@ -90,23 +90,31 @@ Swifty acts as a dynamic theming hub for your entire desktop. Changing a wallpap
 
 ### 3. Top Bar, Layout & UI Refinements
 
-- **Flush Top Alignment (`y = 0` Edge Alignment):**
-  - Top bar spacing has been eliminated, allowing capsules and pills to sit flush against the top screen edge with a clean 32px height.
-- **Top Bar Quick Settings Pill & Pulldown (`src/overlay/settings_menu.rs`, `src/bar/workspaces.rs`):**
-  - Dedicated Settings icon capsule (`󰒓`) on the top-left next to the distro logo.
-  - Drops down an animated liquid preferences menu with category subtabs (Appearance, Bar, Launcher, Input, Integrations) and animation speed sliders (0.5× / 1.0× / 1.5× / 2.0×) for instant tweaks without launching the full Settings window.
-- **Dynamic Network Tray Icon & Spaced System Tray (`src/bar/system.rs`):**
-  - Automatically switches between an Ethernet LAN icon (`󰈀`) when wired and Wi-Fi (``) when wireless.
-  - Balanced 18px icon bounding slots with a 10px visual gap to prevent glyph crowding.
-- **Redesigned Calendar & 7-Day Weather Pulldown (`src/overlay/control_center/calendar.rs`):**
-  - 820px dropdown featuring 7-day Open-Meteo forecasts, large digital clock, monthly calendar grid, and persistent agenda reminders (`~/.local/state/amane/reminders.json`).
-- **Unified Media, Audio & Equalizer Tab (`src/overlay/control_center/media.rs`):**
-  - Combines Now Playing, album art, live Cava visualizer, waveform seeking, volume faders, sink picker, and the 10-band EQ into a single screen.
-- **System Info & Hardware Overview (`src/settings/pages/user.rs`):**
-  - Hero System Card displaying distro logo, kernel release, uptime, package counts, CPU specs, RAM usage, and GPU info (`lspci`).
-- **Settings Tab Streamlining:**
-  - Removed redundant tabs (*About*, *System Info*, *Behavior*, *Plugins*).
-  - Moved Animation Speed and Wallpaper transitions directly into the Appearance tab and Quick Settings pulldown.
+- **Consolidated Control Center Pulldown (`src/overlay/control_center.rs`):**
+  - Unified 820px liquid dropdown organized into 5 primary functional tabs:
+    1. **Overview (`\u{f073}` / `src/overlay/control_center/calendar.rs`):**
+       - 7-day live Open-Meteo weather forecast with daily highs/lows and condition icons.
+       - **Live Notifications Hub:** Embedded notification hub with instant counts (`󰂚 Notifications • 2 new`), "Clear all" button, per-item dismiss (`✕`), and action triggers.
+       - **Calendar Events Agenda:** Persistent agenda reminders (`~/.local/state/amane/reminders.json`) splitting vertical space 50/50 with the notifications card.
+       - **Monthly Calendar Widget:** Interactive grid with circular current-day highlighting and reminder indicators.
+    2. **System Monitor (`󰍛` / `src/overlay/sysmon.rs`):**
+       - Real-time disk usage graph (`/`), network throughput, memory meters, load averages, and an expanded Top Processes card.
+    3. **Media & DSP Equalizer (`󰎆` / `src/overlay/control_center/media.rs`):**
+       - Combines Now Playing, album art, live Cava visualizer, waveform seeking, volume faders, sink picker, and the 10-band parametric EQ into a single screen.
+    4. **Settings (`\u{f0493}` / `src/overlay/settings_menu.rs`):**
+       - Multi-category embedded settings sidebar:
+         - **Monitors Card:** Dynamic output discovery via `niri msg --json outputs`, live toggle switches with sole-monitor blackout protection, backlight brightness slider synced with `amane::Brightness`, an integrated **Blue Light Filter** (`wlsunset`) with instant toggle switch and 2500K–6000K warmth temperature slider, and a dedicated launcher card for the **Monitor Layout** application (`io.github.cjgarcia1229.monitor-layout`).
+         - **Network Card:** Master Wi-Fi power switch, connected SSID info with Disconnect action, and available wireless access points scanner with Connect buttons.
+         - **Bluetooth Card:** Master Bluetooth power toggle, device discovery scanner, and paired/nearby device cards with status and Connect/Disconnect actions.
+         - **Appearance, Status Bar, App Launcher, Input & Touchpad, Integrations**.
+         - **Full Settings Shortcut:** One-click launcher for the comprehensive multi-window settings suite.
+    5. **Power (`\u{f011}` / `src/overlay/power_devices.rs`):**
+       - Consolidates power profiles (Power Saver, Balanced, Performance), battery health, discharge rate, peripheral levels, and session power actions (Lock, Suspend, Restart, Shut Down, Log Out).
+- **Minimalist Top Bar Architecture (`src/bar/`):**
+  - **Bold Status Bar Clock:** Central clock rendered in bold weight with calibrated capsule padding for crisp visibility.
+  - **Pill Consolidation:** Standalone top-left Settings pill and far-right Power pill have been removed in favor of integrated center dropdown tabs, eliminating clutter.
+  - **Flush Top Alignment (`y = 0`):** Standardized 32px height capsules flush against the screen edge with zero dead margin.
+  - **Dynamic System Tray (`src/bar/system.rs`):** Notification bell (`󰂚`), dynamic Ethernet (`󰈀`) / Wi-Fi (``) indicator, and Bluetooth (`󰂯`) status with balanced 18px slots and 10px gaps.
 
 ---
 

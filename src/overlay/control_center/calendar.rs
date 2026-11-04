@@ -2,7 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use amane::{
-    Center, Color, Column, End, Padding, Pointer, Rectangle, Row, ScrollArea, Service,
+    Center, Color, Column, End, Full, Notification, Notifications, Padding, Pointer, Rectangle, Row, ScrollArea, Service,
     SpaceBetween, Stack, Start, Text, TextInput, Weight, Widget, children,
 };
 
@@ -324,7 +324,7 @@ fn bottom_section(overlay: &Overlay, theme: &Theme, width: f32, height: f32) -> 
     let left_width = ((width - gap) * 0.44).round();
     let right_width = width - gap - left_width;
 
-    let left_col = left_column(theme, left_width, height);
+    let left_col = left_column(overlay, theme, left_width, height);
     let right_card = calendar_card(overlay, theme, right_width, height);
 
     Row::new(children![left_col, right_card])
@@ -334,85 +334,236 @@ fn bottom_section(overlay: &Overlay, theme: &Theme, width: f32, height: f32) -> 
         .align(Center)
 }
 
-fn left_column(theme: &Theme, width: f32, height: f32) -> Column {
+fn left_column(overlay: &Overlay, theme: &Theme, width: f32, height: f32) -> Column {
     let gap = 10.0;
-    let clock_height = 110.0;
-    let reminders_height = height - clock_height - gap;
+    let half_height = ((height - gap) / 2.0).round();
+    let reminders_height = height - half_height - gap;
 
-    let clock = clock_card(theme, width, clock_height);
+    let notifications = notifications_card(overlay, theme, width, half_height);
     let reminders = reminders_card(theme, width, reminders_height);
 
-    Column::new(children![clock, reminders])
+    Column::new(children![notifications, reminders])
         .width(width)
         .height(height)
         .gap(gap)
 }
 
-fn clock_card(theme: &Theme, width: f32, height: f32) -> Rectangle {
-    let clock = Clock::read();
-    let time_str = clock.time(false);
-    let (digits, period) = if let Some((t, p)) = time_str.split_once(' ') {
-        (t.trim(), Some(p.trim()))
-    } else {
-        (time_str.as_str(), None)
-    };
+fn notifications_card(_overlay: &Overlay, theme: &Theme, width: f32, height: f32) -> Rectangle {
+    let notifications = Notifications::read();
+    let count = notifications.list().len();
 
-    let time_text = Text::new(digits)
-        .size(46.0)
-        .font(fonts::BODY)
-        .weight(Weight::Bold)
-        .color(theme.text);
-
-    let mut time_items: Vec<Box<dyn Widget>> = vec![Box::new(time_text)];
-
-    if let Some(period_str) = period {
-        let period_badge = Rectangle::new()
-            .width(32.0)
-            .height(20.0)
-            .radius(6.0)
-            .fill(theme.selected_surface)
-            .padding(Padding {
-                top: 2.0,
-                bottom: 2.0,
-                left: 6.0,
-                right: 6.0,
-            })
-            .align_child(Center, Center)
-            .child(
-                Text::new(period_str)
-                    .size(11.0)
-                    .font(fonts::BODY)
-                    .weight(Weight::Bold)
-                    .color(theme.secondary_text),
-            );
-        time_items.push(Box::new(period_badge));
-    }
-
-    let time_row = Row::new(time_items).gap(8.0).align(Center);
-
-    let (_, month, day) = clock.today();
-    let date_str = clock.date();
-    let weekday = date_str.split(',').next().unwrap_or("Today");
-    let month_name = MONTHS[(month - 1) as usize];
-    let subtitle_str = format!("{}  |  {} {:02}", weekday.to_uppercase(), &month_name[..3].to_uppercase(), day);
-
-    let subtitle = Text::new(subtitle_str)
-        .size(11.5)
+    let title_text = Text::new("Notifications")
+        .size(13.0)
         .font(fonts::BODY)
         .weight(Weight::SemiBold)
-        .color(theme.secondary_text);
+        .color(theme.text);
 
-    let col = Column::new(children![time_row, subtitle])
-        .gap(6.0)
+    let count_str = if count == 0 {
+        String::from("No new")
+    } else if count == 1 {
+        String::from("1 new")
+    } else {
+        format!("{count} new")
+    };
+
+    let count_text = Text::new(count_str)
+        .size(11.0)
+        .font(fonts::BODY)
+        .color(if count > 0 { theme.accent } else { theme.muted_text });
+
+    let header_title = Row::new(children![
+        Text::new("󰂚 ")
+            .size(13.5)
+            .font(fonts::NERD)
+            .color(if count > 0 { theme.accent } else { theme.secondary_text }),
+        title_text,
+        Text::new(" • ")
+            .size(11.0)
+            .font(fonts::BODY)
+            .color(theme.border),
+        count_text,
+    ])
+    .align(Center);
+
+    let mut header_children: Vec<Box<dyn Widget>> = vec![Box::new(header_title)];
+
+    if count > 0 {
+        let clear_btn = Rectangle::new()
+            .width(56.0)
+            .height(20.0)
+            .radius(4.0)
+            .cursor(Pointer)
+            .on_click(|_| Notifications::clear())
+            .align_child(Center, Center)
+            .child(
+                Text::new("Clear all")
+                    .size(11.0)
+                    .font(fonts::BODY)
+                    .weight(Weight::Medium)
+                    .color(theme.danger),
+            );
+        header_children.push(Box::new(clear_btn));
+    }
+
+    let header_row = Row::new(header_children)
+        .width(width - 32.0)
+        .justify(SpaceBetween)
         .align(Center);
+
+    let inner_width = width - 32.0;
+
+    let mut notif_rows: Vec<Box<dyn Widget>> = Vec::new();
+
+    if count == 0 {
+        let empty_icon = Text::new("󰂜")
+            .size(20.0)
+            .font(fonts::NERD)
+            .color(theme.muted_text);
+        let empty_label = Text::new("No notifications")
+            .size(11.5)
+            .font(fonts::BODY)
+            .color(theme.muted_text);
+        let empty_col = Column::new(children![empty_icon, empty_label])
+            .gap(4.0)
+            .align(Center);
+
+        notif_rows.push(Box::new(
+            Rectangle::new()
+                .width(inner_width)
+                .height((height - 52.0).max(40.0))
+                .align_child(Center, Center)
+                .child(empty_col),
+        ));
+    } else {
+        for n in notifications.list().iter().rev() {
+            notif_rows.push(Box::new(notification_item(theme, n, inner_width)));
+        }
+    }
+
+    let scroll_height = (height - 48.0).max(36.0);
+    let scroll_area = ScrollArea::new(
+        "overview-notifs-scroll",
+        Column::new(notif_rows).gap(6.0).width(inner_width),
+    )
+    .width(inner_width)
+    .height(scroll_height);
+
+    let col = Column::new(children![header_row, scroll_area])
+        .gap(6.0)
+        .width(inner_width);
 
     Rectangle::new()
         .width(width)
         .height(height)
         .radius(20.0)
         .fill(theme.surface)
-        .align_child(Center, Center)
+        .padding(Padding {
+            top: 12.0,
+            right: 16.0,
+            bottom: 12.0,
+            left: 16.0,
+        })
         .child(col)
+}
+
+fn notification_item(theme: &Theme, notification: &Notification, width: f32) -> Rectangle {
+    let app_name = notification.app_name();
+    let summary = notification.summary();
+    let body = notification.body();
+    let id = notification.id();
+
+    let icon_box = Rectangle::new()
+        .width(26.0)
+        .height(26.0)
+        .radius(7.0)
+        .fill(theme.selected_surface)
+        .align_child(Center, Center)
+        .child(
+            Text::new("󰂚")
+                .size(13.0)
+                .font(fonts::NERD)
+                .tight()
+                .color(theme.accent),
+        );
+
+    let display_title = if !summary.is_empty() {
+        summary
+    } else if !app_name.is_empty() {
+        app_name
+    } else {
+        "Notification"
+    };
+
+    let title_w = Text::new(display_title)
+        .size(12.0)
+        .font(fonts::BODY)
+        .weight(Weight::SemiBold)
+        .color(theme.text)
+        .elide();
+
+    let sub_text = if !body.is_empty() {
+        body
+    } else if !summary.is_empty() && !app_name.is_empty() {
+        app_name
+    } else {
+        ""
+    };
+
+    let sub_w = Text::new(sub_text)
+        .size(10.5)
+        .font(fonts::BODY)
+        .color(theme.secondary_text)
+        .elide();
+
+    let text_width = (width - 26.0 - 10.0 - 24.0 - 20.0).max(40.0);
+
+    let text_col = Column::new(children![
+        Rectangle::new().width(text_width).height(16.0).align_child(Start, Center).child(title_w),
+        Rectangle::new().width(text_width).height(14.0).align_child(Start, Center).child(sub_w),
+    ]).gap(1.0);
+
+    let left = Row::new(children![icon_box, text_col])
+        .gap(8.0)
+        .align(Center);
+
+    let dismiss_btn = Rectangle::new()
+        .width(20.0)
+        .height(20.0)
+        .radius(Full)
+        .cursor(Pointer)
+        .on_click(move |_| Notifications::dismiss(id))
+        .align_child(Center, Center)
+        .child(
+            Text::new("\u{f00d}")
+                .size(11.0)
+                .font(fonts::NERD)
+                .tight()
+                .color(theme.muted_text),
+        );
+
+    let row = Row::new(children![left, dismiss_btn])
+        .width(width - 18.0)
+        .justify(SpaceBetween)
+        .align(Center);
+
+    let mut card = Rectangle::new()
+        .width(width)
+        .height(44.0)
+        .radius(10.0)
+        .fill(theme.hover_surface)
+        .padding(Padding {
+            top: 5.0,
+            right: 8.0,
+            bottom: 5.0,
+            left: 10.0,
+        })
+        .align_child(Start, Center);
+
+    if notification.has_default_action() {
+        card = card.cursor(Pointer).on_click(move |_| Notifications::click(id));
+    }
+
+    card.child(row)
 }
 
 fn reminders_card(theme: &Theme, width: f32, height: f32) -> Rectangle {
@@ -424,7 +575,7 @@ fn reminders_card(theme: &Theme, width: f32, height: f32) -> Rectangle {
 
     let title_str = format!("{weekday}, {month_name} {day}");
     let title_text = Text::new(title_str)
-        .size(13.5)
+        .size(13.0)
         .font(fonts::BODY)
         .weight(Weight::SemiBold)
         .color(theme.text);
@@ -432,9 +583,9 @@ fn reminders_card(theme: &Theme, width: f32, height: f32) -> Rectangle {
     let reminders = RemindersData::read();
     let count = reminders.items.len();
     let count_str = if count == 1 {
-        "1 reminder".to_string()
+        "1 event".to_string()
     } else {
-        format!("{count} reminders")
+        format!("{count} events")
     };
 
     let count_text = Text::new(count_str)
@@ -442,20 +593,32 @@ fn reminders_card(theme: &Theme, width: f32, height: f32) -> Rectangle {
         .font(fonts::BODY)
         .color(theme.muted_text);
 
-    let header_col = Column::new(children![title_text, count_text]).gap(2.0);
+    let header_title = Row::new(children![
+        Text::new("󰸗 ")
+            .size(13.5)
+            .font(fonts::NERD)
+            .color(theme.accent),
+        title_text,
+        Text::new(" • ")
+            .size(11.0)
+            .font(fonts::BODY)
+            .color(theme.border),
+        count_text,
+    ])
+    .align(Center);
 
     let inner_width = width - 32.0;
 
     let mut reminder_rows: Vec<Box<dyn Widget>> = Vec::new();
     if reminders.items.is_empty() {
-        let empty_text = Text::new("No reminders")
+        let empty_text = Text::new("No events or reminders")
             .size(11.5)
             .font(fonts::BODY)
             .color(theme.muted_text);
         reminder_rows.push(Box::new(
             Rectangle::new()
                 .width(inner_width)
-                .height(40.0)
+                .height(36.0)
                 .align_child(Center, Center)
                 .child(empty_text),
         ));
@@ -465,7 +628,7 @@ fn reminders_card(theme: &Theme, width: f32, height: f32) -> Rectangle {
         }
     }
 
-    let scroll_height = (height - 26.0 - 36.0 - 32.0 - 18.0).max(40.0);
+    let scroll_height = (height - 90.0).max(36.0);
     let scroll_area = ScrollArea::new(
         "reminders-scroll",
         Column::new(reminder_rows).gap(6.0).width(inner_width),
@@ -475,8 +638,8 @@ fn reminders_card(theme: &Theme, width: f32, height: f32) -> Rectangle {
 
     let input_bar = reminder_input_bar(theme, inner_width);
 
-    let col = Column::new(children![header_col, scroll_area, input_bar])
-        .gap(8.0)
+    let col = Column::new(children![header_title, scroll_area, input_bar])
+        .gap(6.0)
         .width(inner_width);
 
     Rectangle::new()
@@ -485,9 +648,9 @@ fn reminders_card(theme: &Theme, width: f32, height: f32) -> Rectangle {
         .radius(20.0)
         .fill(theme.surface)
         .padding(Padding {
-            top: 14.0,
+            top: 12.0,
             right: 16.0,
-            bottom: 12.0,
+            bottom: 10.0,
             left: 16.0,
         })
         .child(col)

@@ -42,6 +42,7 @@ impl Service for Logind {
                     continue;
                 }
 
+                amane::Lock::force_unlock();
                 curtain::open();
             }
         });

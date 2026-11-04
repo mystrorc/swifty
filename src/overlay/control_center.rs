@@ -16,7 +16,7 @@ use amane::{
 use crate::fonts;
 use crate::overlay::audio_control::AudioDevices;
 
-use super::{Overlay, PanelView, Region, power_devices, sysmon};
+use super::{Overlay, PanelView, Region, power_devices, settings_menu, sysmon};
 use crate::liquid::Blob;
 use crate::theme::{self, Theme};
 
@@ -87,39 +87,46 @@ pub fn view(overlay: &Overlay, theme: &Theme, screen: Region) -> Option<PanelVie
     Some(PanelView { blob, input, reach })
 }
 
-// Higher-level tabs at the top of the middle pulldown: System Monitor / Media / Calendar / Battery
+// Higher-level tabs at the top of the middle pulldown: Overview / System Monitor / Media / Power
 fn section_tabs(overlay: &Overlay, theme: &Theme, width: f32) -> Row {
+    let overview_btn = section_tab_button(
+        theme,
+        "\u{f073}",
+        "Overview",
+        overlay.center_tab == 0,
+        || Overlay::set_center_tab(0),
+    );
     let sysmon_btn = section_tab_button(
         theme,
         "󰍛",
         "System Monitor",
-        overlay.center_tab == 0,
-        || Overlay::set_center_tab(0),
+        overlay.center_tab == 1,
+        || Overlay::set_center_tab(1),
     );
     let media_btn = section_tab_button(
         theme,
         "󰎆",
         "Media",
-        overlay.center_tab == 1,
-        || Overlay::set_center_tab(1),
-    );
-    let calendar_btn = section_tab_button(
-        theme,
-        "\u{f073}",
-        "Calendar",
         overlay.center_tab == 2,
         || Overlay::set_center_tab(2),
     );
-    let battery_btn = section_tab_button(
+    let settings_btn = section_tab_button(
         theme,
-        "󰁹",
-        "Battery",
+        "\u{f0493}",
+        "Settings",
         overlay.center_tab == 3,
         || Overlay::set_center_tab(3),
     );
+    let power_btn = section_tab_button(
+        theme,
+        "\u{f011}",
+        "Power",
+        overlay.center_tab == 4,
+        || Overlay::set_center_tab(4),
+    );
 
     let strip = Rectangle::new()
-        .width(554.0)
+        .width(652.0)
         .height(TOP_BAR_HEIGHT)
         .radius(14.0)
         .fill(theme.surface)
@@ -131,7 +138,7 @@ fn section_tabs(overlay: &Overlay, theme: &Theme, width: f32) -> Row {
         })
         .align_child(Center, Center)
         .child(
-            Row::new(children![sysmon_btn, media_btn, calendar_btn, battery_btn])
+            Row::new(children![overview_btn, sysmon_btn, media_btn, settings_btn, power_btn])
                 .gap(6.0)
                 .align(Center),
         );
@@ -181,7 +188,7 @@ fn section_tab_button(
     let row = Row::new(children![icon_w, label_w]).gap(6.0).align(Center);
 
     Rectangle::new()
-        .width(130.0)
+        .width(124.0)
         .height(28.0)
         .radius(10.0)
         .fill(fill)
@@ -270,9 +277,10 @@ fn content(overlay: &Overlay, theme: &Theme, width: f32) -> Rectangle {
     let top_tabs = section_tabs(overlay, theme, inner_width);
 
     let body: Box<dyn Widget> = match overlay.center_tab {
-        0 => Box::new(sysmon::embedded_view(theme, inner_width, CARD_HEIGHT)),
-        2 => Box::new(calendar::embedded_view(overlay, theme, inner_width, CARD_HEIGHT)),
-        3 => Box::new(power_devices::embedded_view(theme, inner_width, CARD_HEIGHT)),
+        0 => Box::new(calendar::embedded_view(overlay, theme, inner_width, CARD_HEIGHT)),
+        1 => Box::new(sysmon::embedded_view(theme, inner_width, CARD_HEIGHT)),
+        3 => Box::new(settings_menu::embedded_view(overlay, theme, inner_width, CARD_HEIGHT)),
+        4 => Box::new(power_devices::embedded_view(theme, inner_width, CARD_HEIGHT)),
         _ => {
             let left_width: f32 = 220.0;
             let card_width = inner_width - left_width - GAP;
@@ -407,7 +415,7 @@ pub fn ipc(arguments: &[String]) -> String {
     let command = arguments.first().map(String::as_str).unwrap_or("toggle");
     let monitor_arg = arguments.get(1).map(String::as_str);
 
-    let shown = Overlay::read().control_center.shown && Overlay::read().center_tab == 1;
+    let shown = Overlay::read().control_center.shown && Overlay::read().center_tab == 2;
 
     let wanted = match command {
         "show" => true,
@@ -416,7 +424,7 @@ pub fn ipc(arguments: &[String]) -> String {
     };
 
     if wanted {
-        Overlay::open_control_tab(1, monitor_arg);
+        Overlay::open_control_tab(0, monitor_arg);
     } else {
         Overlay::write().control_center.hide();
     }

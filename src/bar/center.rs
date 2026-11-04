@@ -1,6 +1,6 @@
 use amane::{
     Align, Audio, Button, Center, End, Monitor, Parent, Pointer, Rectangle, Row, Scroll, Service, Stack,
-    Start, Text, Widget, children,
+    Start, Text, Weight, Widget, children,
 };
 
 use super::{pill, ring, system, timer, workspaces};
@@ -201,7 +201,7 @@ fn audio_segment(monitor: &Monitor, theme: &Theme) -> (f32, Rectangle) {
             Button::Right => {
                 let is_eq_open = {
                     let o = Overlay::read();
-                    o.control_center.shown && o.center_tab == 1 && o.control_tab == 1
+                    o.control_center.shown && o.center_tab == 2 && o.control_tab == 1
                 };
                 if is_eq_open {
                     Overlay::toggle_control_center(Some(&monitor_name));
@@ -234,7 +234,7 @@ fn clock_segment(monitor: &Monitor, theme: &Theme) -> (f32, Rectangle) {
     drop(settings);
 
     let text_width = pill::text_width(&text, 14.0);
-    let width = text_width + 20.0;
+    let width = text_width + 24.0;
 
     let monitor_name = monitor.name.clone();
     let seg = Rectangle::new()
@@ -246,7 +246,13 @@ fn clock_segment(monitor: &Monitor, theme: &Theme) -> (f32, Rectangle) {
             _ => {}
         })
         .align_child(Center, Center)
-        .child(pill::label(&text, 14.0, theme.text));
+        .child(
+            Text::new(&text)
+                .size(14.0)
+                .font(fonts::BODY)
+                .weight(Weight::Bold)
+                .color(theme.text),
+        );
 
     (width, seg)
 }

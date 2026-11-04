@@ -73,7 +73,7 @@ impl Cava {
 
 fn open() -> bool {
     let overlay = Overlay::read();
-    overlay.control_center.shown && overlay.center_tab == 1
+    overlay.control_center.shown && overlay.center_tab == 2
 }
 
 fn wanted() -> bool {

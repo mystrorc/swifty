@@ -92,6 +92,10 @@ fn main() {
     // window layout tracker for floating desktop widgets adjustment
     drop(floating::windows::DesktopWindows::read());
 
+    // initialize blue light nightlight filter if previously enabled
+    overlay::settings_menu::init_nightlight();
+
+
     App::new()
         .font(fonts::body())
         .window_per_monitor(wallpaper::view)

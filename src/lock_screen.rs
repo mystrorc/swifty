@@ -118,6 +118,7 @@ fn unlock(width: f32, height: f32) -> Stack {
 // locks the session, the same as `loginctl lock-session`, or unlocks if requested
 pub fn ipc(arguments: &[String]) -> String {
     if arguments.first().map(|s| s.as_str()) == Some("unlock") {
+        Lock::force_unlock();
         thread::spawn(curtain::open);
 
         return String::from("ok");

@@ -98,19 +98,98 @@ pub fn view(_overlay: &Overlay, _theme: &Theme, _screen: Region) -> Option<Panel
     None
 }
 
-// Two-column layout rendered inside the middle pulldown's Battery tab
-pub fn embedded_view(theme: &Theme, width: f32, height: f32) -> Row {
-    let gap = 14.0;
+// Layout rendered inside the middle pulldown's Power tab:
+// Battery / Peripheral cards on top, Power Menu actions on the bottom
+pub fn embedded_view(theme: &Theme, width: f32, height: f32) -> Column {
+    let gap = 12.0;
+    let power_bar_h = 52.0;
+    let top_h = height - power_bar_h - gap;
+
     let col_width = (width - gap) / 2.0;
 
-    let left_card = laptop_card(theme, col_width, height);
-    let right_card = peripherals_card(theme, col_width, height);
+    let left_card = laptop_card(theme, col_width, top_h);
+    let right_card = peripherals_card(theme, col_width, top_h);
 
-    Row::new(children![left_card, right_card])
+    let top_row = Row::new(children![left_card, right_card])
+        .width(width)
+        .height(top_h)
+        .gap(gap)
+        .align(Center);
+
+    let power_bar = power_actions_bar(theme, width, power_bar_h);
+
+    Column::new(children![top_row, power_bar])
+        .width(width)
+        .height(height)
+        .gap(gap)
+}
+
+fn power_actions_bar(theme: &Theme, width: f32, height: f32) -> Row {
+    let actions: [(&'static str, &'static str, &'static str, bool); 5] = [
+        ("Lock", "\u{f033e}", "loginctl lock-session", false),
+        ("Sleep", "\u{f04b2}", "systemctl suspend", false),
+        ("Logout", "\u{f0343}", "niri msg action quit --skip-confirmation", false),
+        ("Restart", "\u{f0709}", "systemctl reboot", false),
+        ("Shutdown", "\u{23fb}", "systemctl poweroff", true),
+    ];
+
+    let gap = 10.0;
+    let btn_w = (width - gap * 4.0) / 5.0;
+
+    let mut buttons: Vec<Box<dyn Widget>> = Vec::new();
+    for (label, icon, cmd, danger) in actions {
+        buttons.push(Box::new(power_action_button(
+            theme, label, icon, cmd, danger, btn_w, height,
+        )));
+    }
+
+    Row::new(buttons)
         .width(width)
         .height(height)
         .gap(gap)
         .align(Center)
+}
+
+fn power_action_button(
+    theme: &Theme,
+    label: &'static str,
+    icon: &'static str,
+    command: &'static str,
+    danger: bool,
+    width: f32,
+    height: f32,
+) -> Rectangle {
+    let icon_color = if danger { theme.danger } else { theme.accent };
+    let text_color = if danger { theme.danger } else { theme.text };
+
+    let icon_w = Text::new(icon)
+        .size(16.0)
+        .font(fonts::NERD)
+        .tight()
+        .color(icon_color);
+
+    let label_w = Text::new(label)
+        .size(12.5)
+        .font(fonts::BODY)
+        .weight(Weight::SemiBold)
+        .color(text_color);
+
+    let content = Row::new(children![icon_w, label_w])
+        .gap(8.0)
+        .align(Center);
+
+    Rectangle::new()
+        .width(width)
+        .height(height)
+        .radius(14.0)
+        .fill(theme.surface)
+        .cursor(Pointer)
+        .on_click(move |_| {
+            Overlay::write().control_center.hide();
+            amane::spawn(command);
+        })
+        .align_child(Center, Center)
+        .child(content)
 }
 
 fn laptop_card(theme: &Theme, width: f32, height: f32) -> Rectangle {

@@ -3,38 +3,39 @@ mod state;
 
 use amane::{
     Center, Color, Column, Full, Key, Keyboard, Layer, LayerWindow, Monitor, Parent,
-    Pointer, Rectangle, Service, Stack, Text, Widget, Zone, children,
+    Pointer, Rectangle, Service, Stack, Start, Text, Widget, Zone, children,
 };
 
 use card::Place;
 
 use super::Wallpaper;
+use crate::bar;
 use crate::fonts;
 use crate::settings::Settings;
 use crate::theme;
 
 pub use state::{Picker, list_folder};
 
-// the band's height, leaving at least this much of the screen above and below
-const HEIGHT: f32 = 380.0;
-const SCREEN_GAP: f32 = 72.0;
+// Dimensions for the dropdown wallpaper switcher attached to the top-center pulldown
+const PANEL_WIDTH: f32 = 820.0;
+const PANEL_HEIGHT: f32 = 360.0;
+const RADIUS: f32 = 28.0;
+const TOP_OFFSET: f32 = 8.0;
+const HIDDEN_MARGIN: f32 = 32.0;
 
-// the cards' largest size, and how much of the band's width one may take
-const CARD_WIDTH: f32 = 360.0;
-const CARD_HEIGHT: f32 = 240.0;
+// Thumbnail & card size
+pub const CARD_WIDTH: f32 = 260.0;
+pub const CARD_HEIGHT: f32 = 160.0;
 const CARD_SHARE: f32 = 0.34;
 
-const MARGIN: f32 = 24.0;
-
-// how many cards fit along the carousel, and how far past each side it runs
-const VISIBLE_CARDS: f32 = 7.0;
-const OVERHANG: f32 = 0.12;
+const SPACING: f32 = 215.0;
+const CUTOFF_DISTANCE: f32 = 1.25;
 
 const TINT: f32 = 0.48;
 
 /*
- * the wallpaper behind the band, blurred and tinted, with the wallpapers as
- * cards sliding along it; above everything, and only open while shown
+ * the wallpaper behind the panel, blurred and tinted, with the wallpapers as
+ * cards sliding along it; floating dropdown attached below the top center pill
  */
 pub fn view(monitor: &Monitor) -> LayerWindow {
     let picker = Picker::read();
@@ -59,7 +60,8 @@ pub fn view(monitor: &Monitor) -> LayerWindow {
     let screen_width = monitor.width as f32;
     let screen_height = monitor.height as f32;
 
-    let height = f32::min(HEIGHT, screen_height - SCREEN_GAP);
+    let panel_width = PANEL_WIDTH.min(screen_width - 48.0);
+    let panel_height = PANEL_HEIGHT.min(screen_height - 32.0);
 
     let keyboard = if picker.shown {
         Keyboard::Exclusive
@@ -70,8 +72,9 @@ pub fn view(monitor: &Monitor) -> LayerWindow {
     let opaque = Settings::read().flag("reduce_transparency");
 
     let backdrop = Rectangle::new()
-        .width(screen_width)
-        .height(height)
+        .width(panel_width)
+        .height(panel_height)
+        .radius(RADIUS)
         .fill(super::blurred(screen_width, screen_height));
 
     // an alpha in the color, since fading the rectangle would give it a canvas of its own
@@ -84,21 +87,28 @@ pub fn view(monitor: &Monitor) -> LayerWindow {
     let tint = Rectangle::new()
         .width(Parent)
         .height(Parent)
+        .radius(RADIUS)
         .fill(Color::rgba(surface.red(), surface.green(), surface.blue(), tint_alpha));
 
     let content: Box<dyn Widget> = if picker.files.is_empty() {
         Box::new(empty(&theme))
     } else {
-        Box::new(carousel(&picker, &theme, screen_width, height))
+        Box::new(carousel(&picker, &theme, panel_width, panel_height))
     };
 
     let band = Stack::new(vec![Box::new(backdrop), Box::new(tint), content])
-        .width(screen_width)
-        .height(height);
+        .width(panel_width)
+        .height(panel_height);
+
+    let top_y = bar::reserved() + TOP_OFFSET;
+    let hidden = -(panel_height + HIDDEN_MARGIN);
+    let slide_y = top_y + (hidden - top_y) * (1.0 - opacity);
 
     let band_wrapper = Rectangle::new()
-        .width(screen_width)
-        .height(height)
+        .width(panel_width)
+        .height(panel_height)
+        .radius(RADIUS)
+        .translate(0.0, slide_y)
         .opacity(opacity)
         .on_click(|_| {})
         .child(band);
@@ -108,7 +118,7 @@ pub fn view(monitor: &Monitor) -> LayerWindow {
     let root = Rectangle::new()
         .width(Parent)
         .height(Parent)
-        .align_child(Center, Center)
+        .align_child(Center, Start)
         .fill(Color::rgba(0, 0, 0, scrim_alpha))
         .on_click(|_| Picker::write().hide())
         .on_scroll(|scroll| {
@@ -133,20 +143,14 @@ pub fn view(monitor: &Monitor) -> LayerWindow {
 }
 
 /*
- * like a carousel on a straight line: the line runs a little past both
- * sides, cards are spread evenly along it, and each gets smaller and
- * darker the further it is from the middle; the list wraps around
+ * like a carousel on a straight line: cards are spread evenly along it,
+ * each gets smaller and darker the further it is from the middle
  */
 fn carousel(picker: &Picker, theme: &theme::Theme, width: f32, height: f32) -> Stack {
     let count = picker.files.len() as f32;
 
-    let inside = width - MARGIN * 2.0;
-
-    let line = inside * (1.0 + OVERHANG * 2.0);
-    let spacing = line / VISIBLE_CARDS;
-
-    let card_width = f32::min(CARD_WIDTH, width * CARD_SHARE);
-    let card_height = f32::min(CARD_HEIGHT, height - SCREEN_GAP);
+    let card_width = CARD_WIDTH.min(width * CARD_SHARE);
+    let card_height = CARD_HEIGHT.min(height - 40.0);
 
     let position = picker.position.value();
 
@@ -156,11 +160,11 @@ fn carousel(picker: &Picker, theme: &theme::Theme, width: f32, height: f32) -> S
         // how far from the middle, the short way round
         let distance = (index as f32 - position + count / 2.0).rem_euclid(count) - count / 2.0;
 
-        let prominence = 1.0 - distance.abs() * spacing / (line / 2.0);
-
-        if prominence < 0.0 {
+        if distance.abs() > CUTOFF_DISTANCE {
             continue;
         }
+
+        let prominence = (1.0 - distance.abs() / CUTOFF_DISTANCE).clamp(0.0, 1.0);
 
         let is_center = distance.abs() < 0.45;
         let offset = if is_center {
@@ -172,7 +176,7 @@ fn carousel(picker: &Picker, theme: &theme::Theme, width: f32, height: f32) -> S
         };
 
         let place = Place {
-            x: width / 2.0 + distance * spacing,
+            x: width / 2.0 + distance * SPACING,
             y: height / 2.0,
             width: card_width,
             height: card_height,
@@ -193,37 +197,37 @@ fn carousel(picker: &Picker, theme: &theme::Theme, width: f32, height: f32) -> S
         cards.push(Box::new(card::view(path, place)));
     }
 
-    // Add navigation chevrons on the sides of the band
+    // Add navigation chevrons on the sides of the panel
     let btn_bg = Color::rgba(theme.surface.red(), theme.surface.green(), theme.surface.blue(), 200);
 
     let left_btn = Rectangle::new()
-        .width(44.0)
-        .height(44.0)
-        .radius(22.0)
+        .width(36.0)
+        .height(36.0)
+        .radius(18.0)
         .fill(btn_bg)
         .align_child(Center, Center)
-        .translate(24.0, height / 2.0 - 22.0)
+        .translate(20.0, height / 2.0 - 18.0)
         .cursor(Pointer)
         .on_click(|_| Picker::write().slide(-1))
         .child(
             Text::new("<")
-                .size(20.0)
+                .size(18.0)
                 .font(fonts::BODY)
                 .color(theme.text),
         );
 
     let right_btn = Rectangle::new()
-        .width(44.0)
-        .height(44.0)
-        .radius(22.0)
+        .width(36.0)
+        .height(36.0)
+        .radius(18.0)
         .fill(btn_bg)
         .align_child(Center, Center)
-        .translate(width - 24.0 - 44.0, height / 2.0 - 22.0)
+        .translate(width - 20.0 - 36.0, height / 2.0 - 18.0)
         .cursor(Pointer)
         .on_click(|_| Picker::write().slide(1))
         .child(
             Text::new(">")
-                .size(20.0)
+                .size(18.0)
                 .font(fonts::BODY)
                 .color(theme.text),
         );

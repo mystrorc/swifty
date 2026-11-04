@@ -94,13 +94,14 @@ pub fn close() {
         curtain.items.to(0.0);
     }
 
+    // Lock session in Wayland compositor immediately before sleep/suspend freezes user space
+    Lock::start();
+
     thread::sleep(motion::paced(FADE));
 
     Curtain::write().dark.to(1.0);
 
     thread::sleep(motion::paced(DARKEN));
-
-    Lock::start();
 }
 
 // brings the desktop back directly (e.g. on session unlock)

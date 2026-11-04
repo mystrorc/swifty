@@ -93,7 +93,7 @@ impl Default for SysmonData {
         ];
 
         Self {
-            layout_mode: 4, // Default: Option 4 (3-Left / 2-Right)
+            layout_mode: 4, // Option 4: 3-Left / 2-Right
             swap_used_gib: 0.0,
             swap_total_gib: 0.0,
             load1: String::from("0.45"),
@@ -210,12 +210,13 @@ impl Service for SysmonData {
         self.prev_disk_read = d_read;
         self.prev_disk_write = d_write;
 
-        self.top_procs = read_top_processes(6);
+        self.top_procs = read_top_processes(14);
         true
     }
 }
 
 impl SysmonData {
+    #[allow(dead_code)]
     pub fn set_mode(mode: usize) {
         Self::write().layout_mode = mode.clamp(1, 4);
     }
@@ -233,30 +234,13 @@ pub fn view(_overlay: &Overlay, _theme: &Theme, _screen: Region) -> Option<Panel
     None
 }
 
-// Embedded in middle pulldown's System Monitor tab
-pub fn embedded_view(theme: &Theme, width: f32, height: f32) -> Column {
+// Embedded in middle pulldown's System Monitor tab (Layout Option 4 only)
+pub fn embedded_view(theme: &Theme, width: f32, height: f32) -> Row {
     let data = SysmonData::read();
-
-    // Mode Selector Switcher Header
-    let switcher = mode_selector(theme, width, data.layout_mode);
-
-    let switcher_h = 24.0;
-    let gap = 8.0;
-    let body_h = height - switcher_h - gap;
-
-    let body: Box<dyn Widget> = match data.layout_mode {
-        2 => Box::new(layout_option_2(theme, &data, width, body_h)),
-        3 => Box::new(layout_option_3(theme, &data, width, body_h)),
-        4 => Box::new(layout_option_4(theme, &data, width, body_h)),
-        _ => Box::new(layout_option_1(theme, &data, width, body_h)),
-    };
-
-    Column::new(vec![Box::new(switcher) as Box<dyn Widget>, body])
-        .width(width)
-        .height(height)
-        .gap(gap)
+    layout_option_4(theme, &data, width, height)
 }
 
+#[allow(dead_code)]
 fn mode_selector(theme: &Theme, width: f32, current_mode: usize) -> Row {
     let btn1 = mode_pill(theme, "1: 2×2 Grid", current_mode == 1, || SysmonData::set_mode(1));
     let btn2 = mode_pill(theme, "2: 4 Graphs", current_mode == 2, || SysmonData::set_mode(2));
@@ -274,6 +258,7 @@ fn mode_selector(theme: &Theme, width: f32, current_mode: usize) -> Row {
         .align(Center)
 }
 
+#[allow(dead_code)]
 fn mode_pill(
     theme: &Theme,
     label: &str,
@@ -317,6 +302,7 @@ fn mode_pill(
 // ============================================================================
 // Layout Option 1: Symmetrical 2×2 Grid
 // ============================================================================
+#[allow(dead_code)]
 fn layout_option_1(theme: &Theme, data: &SysmonData, width: f32, height: f32) -> Column {
     let gap = 10.0;
     let col_w = (width - gap) / 2.0;
@@ -342,6 +328,7 @@ fn layout_option_1(theme: &Theme, data: &SysmonData, width: f32, height: f32) ->
 // ============================================================================
 // Layout Option 2: 4 Telemetry Line Graphs (CPU, Memory, Network, Disk)
 // ============================================================================
+#[allow(dead_code)]
 fn layout_option_2(theme: &Theme, data: &SysmonData, width: f32, height: f32) -> Column {
     let gap = 10.0;
     let col_w = (width - gap) / 2.0;
@@ -367,6 +354,7 @@ fn layout_option_2(theme: &Theme, data: &SysmonData, width: f32, height: f32) ->
 // ============================================================================
 // Layout Option 3: Network on Right, Processes & Vitals below it
 // ============================================================================
+#[allow(dead_code)]
 fn layout_option_3(theme: &Theme, data: &SysmonData, width: f32, height: f32) -> Row {
     let gap = 10.0;
     let col_w = (width - gap) / 2.0;
@@ -397,7 +385,7 @@ fn layout_option_4(theme: &Theme, data: &SysmonData, width: f32, height: f32) ->
     let col_w = (width - gap) / 2.0;
 
     let left_h = (height - 2.0 * gap) / 3.0;
-    let right_h = (height - gap) / 2.0;
+    let procs_h = height - left_h - gap;
 
     let left_col = Column::new(children![
         cpu_compact_card(theme, data, col_w, left_h),
@@ -408,8 +396,8 @@ fn layout_option_4(theme: &Theme, data: &SysmonData, width: f32, height: f32) ->
     .width(col_w);
 
     let right_col = Column::new(children![
-        processes_card_compact(theme, data, col_w, right_h),
-        disk_graph_card(theme, data, col_w, right_h),
+        processes_card_compact(theme, data, col_w, procs_h),
+        disk_compact_card(theme, data, col_w, left_h),
     ])
     .gap(gap)
     .width(col_w);
@@ -421,6 +409,7 @@ fn layout_option_4(theme: &Theme, data: &SysmonData, width: f32, height: f32) ->
 // Individual Telemetry Cards & Vector Graph Components
 // ============================================================================
 
+#[allow(dead_code)]
 fn cpu_graph_card(theme: &Theme, data: &SysmonData, width: f32, height: f32) -> Rectangle {
     let inner_w = width - CARD_PADDING * 2.0;
 
@@ -482,6 +471,7 @@ fn cpu_graph_card(theme: &Theme, data: &SysmonData, width: f32, height: f32) -> 
         .child(col)
 }
 
+#[allow(dead_code)]
 fn memory_graph_card(theme: &Theme, data: &SysmonData, width: f32, height: f32) -> Rectangle {
     let inner_w = width - CARD_PADDING * 2.0;
 
@@ -541,6 +531,7 @@ fn memory_graph_card(theme: &Theme, data: &SysmonData, width: f32, height: f32) 
         .child(col)
 }
 
+#[allow(dead_code)]
 fn network_graph_card(theme: &Theme, data: &SysmonData, width: f32, height: f32) -> Rectangle {
     let inner_w = width - CARD_PADDING * 2.0;
 
@@ -602,6 +593,7 @@ fn network_graph_card(theme: &Theme, data: &SysmonData, width: f32, height: f32)
         .child(col)
 }
 
+#[allow(dead_code)]
 fn disk_graph_card(theme: &Theme, data: &SysmonData, width: f32, height: f32) -> Rectangle {
     let inner_w = width - CARD_PADDING * 2.0;
 
@@ -701,7 +693,7 @@ fn processes_card_compact(theme: &Theme, data: &SysmonData, width: f32, height: 
 
     let mut rows: Vec<Box<dyn Widget>> = vec![Box::new(header)];
 
-    for p in data.top_procs.iter().take(5) {
+    for p in data.top_procs.iter().take(10) {
         let name_text = Text::new(&p.name)
             .size(11.5)
             .font(fonts::BODY)
@@ -729,7 +721,7 @@ fn processes_card_compact(theme: &Theme, data: &SysmonData, width: f32, height: 
         rows.push(Box::new(row));
     }
 
-    let col = Column::new(rows).gap(6.0).width(inner_w);
+    let col = Column::new(rows).gap(5.0).width(inner_w);
 
     Rectangle::new()
         .width(width)
@@ -745,6 +737,7 @@ fn processes_card_compact(theme: &Theme, data: &SysmonData, width: f32, height: 
         .child(col)
 }
 
+#[allow(dead_code)]
 fn vitals_and_processes_card(theme: &Theme, data: &SysmonData, width: f32, height: f32) -> Rectangle {
     let inner_w = width - CARD_PADDING * 2.0;
 
@@ -931,6 +924,39 @@ fn network_compact_card(theme: &Theme, data: &SysmonData, width: f32, height: f3
         .child(col)
 }
 
+fn disk_compact_card(theme: &Theme, data: &SysmonData, width: f32, height: f32) -> Rectangle {
+    let inner_w = width - 20.0;
+
+    let icon = Text::new("󰋊").size(14.0).font(fonts::NERD).tight().color(theme.accent);
+    let title = Text::new("Disk").size(12.0).font(fonts::BODY).weight(Weight::SemiBold).color(theme.text);
+    let stat = Text::new(format!("{:.0}/{:.0} GiB  (R:{} W:{})", data.disk_used_gib, data.disk_total_gib, data.disk_read_str, data.disk_write_str))
+        .size(10.5)
+        .font(fonts::BODY)
+        .weight(Weight::SemiBold)
+        .color(theme.accent);
+
+    let header = Row::new(children![
+        Row::new(children![icon, title]).gap(5.0).align(Center),
+        stat,
+    ])
+    .width(inner_w)
+    .justify(SpaceBetween)
+    .align(Center);
+
+    let graph_h = (height - 24.0 - 20.0).max(30.0);
+    let graph = line_graph_canvas(inner_w, graph_h, &data.disk_history, theme.accent, true);
+
+    let col = Column::new(children![header, graph]).gap(3.0).width(inner_w);
+
+    Rectangle::new()
+        .width(width)
+        .height(height)
+        .radius(14.0)
+        .fill(theme.surface)
+        .padding(Padding { top: 8.0, right: 10.0, bottom: 6.0, left: 10.0 })
+        .child(col)
+}
+
 // ============================================================================
 // Vector Path Graph Generators
 // ============================================================================
@@ -1034,6 +1060,7 @@ fn dual_line_graph_canvas(
     ])
 }
 
+#[allow(dead_code)]
 fn progress_bar(_theme: &Theme, amount: f32, color: Color, width: f32, bar_height: f32) -> Rectangle {
     let fill_width = (width * amount).max(bar_height);
 

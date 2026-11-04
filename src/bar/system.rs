@@ -50,9 +50,7 @@ pub fn view(monitor: &Monitor, theme: &Theme, width: f32, align: Align) -> Row {
         items.push(Box::new(tray(monitor, theme)));
     }
 
-    if settings.flag("bar_power") {
-        items.push(Box::new(power_button(monitor, theme)));
-    }
+    // Power button removed from bar; integrated into Power tab in center dropdown
 
     items.push(Box::new(Rectangle::new().width(EDGE).height(1.0)));
 
@@ -64,6 +62,7 @@ pub fn view(monitor: &Monitor, theme: &Theme, width: f32, align: Align) -> Row {
         .align(align)
 }
 
+#[allow(dead_code)]
 fn power_button(monitor: &Monitor, theme: &Theme) -> Rectangle {
     let icon = Text::new("\u{f011}") // Nerd Font power icon
         .size(15.0)
