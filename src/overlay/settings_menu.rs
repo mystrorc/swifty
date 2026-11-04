@@ -332,6 +332,10 @@ fn monitors_tab(theme: &Theme, width: f32) -> Column {
 
     let mut items: Vec<Box<dyn Widget>> = Vec::new();
 
+    // 1. Global Blue Light Filter Card (Night Light & Warmth)
+    items.push(Box::new(bluelight_filter_card(theme, width)));
+
+    // 2. Connected Displays
     for mon in monitors {
         let name_clone = mon.name.clone();
         let is_enabled = mon.enabled;
@@ -547,10 +551,7 @@ fn monitors_tab(theme: &Theme, width: f32) -> Column {
                 .align(Center),
         );
 
-        // Blue Light Filter Card
-    items.push(Box::new(bluelight_filter_card(theme, width)));
-
-    items.push(Box::new(layout_card));
+        items.push(Box::new(layout_card));
 
     Column::new(items).gap(10.0)
 }
