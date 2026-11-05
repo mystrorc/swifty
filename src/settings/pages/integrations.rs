@@ -4,7 +4,7 @@ use super::super::page::Page;
 use super::super::{Confirm, Settings, Shown, switch};
 
 // the key, title, what the row says, and what turning it on does
-const INTEGRATIONS: [(&str, &str, &str, &str); 12] = [
+const INTEGRATIONS: [(&str, &str, &str, &str); 11] = [
     (
         "integration_gtk",
         "GTK",
@@ -16,12 +16,6 @@ const INTEGRATIONS: [(&str, &str, &str, &str); 12] = [
         "Flux File Manager",
         "Live GTK4/Libadwaita theme and MIME icon colors for Flux",
         "This writes generated Flux themes to ~/.local/share/flux/themes and ~/.config/flux/style.css, and updates ~/.config/flux/config.toml so running Flux windows live-reload colors automatically.",
-    ),
-    (
-        "integration_strata",
-        "Strata File Manager",
-        "Live theme, syntax highlighting, and custom styling for Strata",
-        "This writes generated Strata themes to ~/.config/strata/themes/amane.toml, custom CSS to ~/.config/strata/style.css, and updates ~/.config/strata/settings.toml so Strata windows live-reload colors automatically.",
     ),
     (
         "integration_terminal",

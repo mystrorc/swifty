@@ -6,7 +6,6 @@ mod gtk;
 mod niri;
 mod obsidian;
 mod spotify;
-mod strata;
 mod terminal;
 mod tmux;
 mod vesktop;
@@ -24,7 +23,7 @@ use crate::settings::Settings;
 use crate::theme::{self, Theme};
 
 // the settings key and the writer of each program that takes the shell's colors
-const PROGRAMS: [(&str, fn(&Theme)); 12] = [
+const PROGRAMS: [(&str, fn(&Theme)); 11] = [
     ("integration_gtk", gtk::export),
     ("integration_flux", flux::export),
     ("integration_terminal", terminal::export),
@@ -35,7 +34,6 @@ const PROGRAMS: [(&str, fn(&Theme)); 12] = [
     ("integration_cava", cava::export),
     ("integration_cosmic", cosmic::export),
     ("integration_zed", zed::export),
-    ("integration_strata", strata::export),
     ("integration_obsidian", obsidian::export),
 ];
 

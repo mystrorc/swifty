@@ -75,8 +75,6 @@ Swifty acts as a dynamic theming hub for your entire desktop. Changing a wallpap
 
 - **Flux File Manager (`src/integrations/flux.rs`, `flux.css`):**
   - Over 1,600 lines of custom CSS injecting frosted-glass transparency, matching accent borders, and dynamic color tokens.
-- **Strata (`src/integrations/strata.rs`):**
-  - Real-time synchronization of system color schemes and corner rounding into Strata.
 - **COSMIC & Iced Applications (`src/integrations/cosmic.rs`):**
   - Embedded native D-Bus `com.system76.CosmicSettingsDaemon` service bridge broadcasting live theme changes to running COSMIC apps (`cosmic-files`, `cosmic-edit`), with 85% background glass transparency.
 - **Zed Editor (`src/integrations/zed.rs`):**

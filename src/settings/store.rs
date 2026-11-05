@@ -7,7 +7,7 @@ use std::process::Command;
 use amane::Service;
 
 // every setting and the value it has until changed
-const DEFAULTS: [(&str, &str); 112] = [
+const DEFAULTS: [(&str, &str); 111] = [
     // appearance
     ("blur_strength", "1"),
     ("reduce_transparency", "false"),
@@ -133,7 +133,6 @@ const DEFAULTS: [(&str, &str); 112] = [
     ("integration_cava", "false"),
     ("integration_cosmic", "true"),
     ("integration_zed", "true"),
-    ("integration_strata", "true"),
     ("integration_obsidian", "true"),
 ];
 
