@@ -107,7 +107,9 @@ Swifty acts as a dynamic theming hub for your entire desktop. Changing a wallpap
          - **Appearance, Status Bar, App Launcher, Input & Touchpad, Integrations**.
          - **Full Settings Shortcut:** One-click launcher for the comprehensive multi-window settings suite.
     5. **Power (`\u{f011}` / `src/overlay/power_devices.rs`):**
-       - Consolidates power profiles (Power Saver, Balanced, Performance), battery health, discharge rate, peripheral levels, and session power actions (Lock, Suspend, Restart, Shut Down, Log Out).
+       - Consolidates power profiles (Power Saver, Balanced, Performance), battery health, discharge rate, and connected peripheral levels.
+       - **Inactivity & Power Timeouts Card:** Interactive stepper controls placed directly above the power menu for **Idle** (dimming), **Display** (screen off via DPMS), **Sleep** (session lock), and **Suspend** (deep standby), synced to session state and `gsettings`.
+       - **Session Power Menu:** 5-action bar for Lock, Sleep, Log Out, Restart, and Shut Down.
 - **Minimalist Top Bar Architecture (`src/bar/`):**
   - **Bold Status Bar Clock:** Central clock rendered in bold weight with calibrated capsule padding for crisp visibility.
   - **Pill Consolidation:** Standalone top-left Settings pill and far-right Power pill have been removed in favor of integrated center dropdown tabs, eliminating clutter.
