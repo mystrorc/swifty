@@ -1,8 +1,8 @@
 use std::process::Command;
 
 use amane::{
-    Center, Column, Padding, Pointer, Rectangle, Row, Service, Start, Text, Weight, Widget,
-    children,
+    Button, Center, Column, Padding, Point, Pointer, Rectangle, Row, Scroll, Service, Start,
+    Stack, Text, Weight, Widget, children,
 };
 
 use crate::fonts;
