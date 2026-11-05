@@ -6,7 +6,6 @@ use amane::{
 };
 
 use crate::fonts;
-use crate::overlay::Overlay;
 use crate::overlay::audio_control::{AudioDevice, AudioDevices};
 use crate::theme::{self, Theme};
 
@@ -300,47 +299,6 @@ pub fn set_band_gain(band_idx: usize, gain: f32) {
     }
 }
 
-pub fn view(overlay: &Overlay, theme: &Theme, width: f32, height: f32) -> Rectangle {
-    let side_padding: f32 = 18.0;
-    let top_padding: f32 = 16.0;
-
-    let inner_width = width - side_padding * 2.0;
-    let inner_height = height - top_padding * 2.0;
-
-    let header_height: f32 = 26.0;
-    let gap: f32 = 10.0;
-    let content_height = inner_height - header_height - gap;
-
-    let eq = EqData::read();
-    let top_row = top_bar(overlay, theme, inner_width, eq.is_bypassed);
-    let content_row = body(theme, &eq, inner_width, content_height);
-
-    let column = Column::new(children![top_row, content_row]).gap(gap);
-
-    Rectangle::new()
-        .width(width)
-        .height(height)
-        .radius(20.0)
-        .fill(theme.surface)
-        .padding(Padding {
-            top: top_padding,
-            right: side_padding,
-            bottom: top_padding,
-            left: side_padding,
-        })
-        .child(column)
-}
-
-fn top_bar(overlay: &Overlay, theme: &Theme, width: f32, bypassed: bool) -> Row {
-    let tabs = super::tabs(overlay, theme);
-    let bypass = bypass_button(theme, bypassed);
-
-    Row::new(children![tabs, bypass])
-        .width(width)
-        .justify(SpaceBetween)
-        .align(Center)
-}
-
 pub fn bypass_button(theme: &Theme, bypassed: bool) -> Rectangle {
 
 
@@ -371,97 +329,6 @@ pub fn bypass_button(theme: &Theme, bypassed: bool) -> Rectangle {
         .on_click(|_| toggle_bypass())
         .align_child(Center, Center)
         .child(row)
-}
-
-fn body(theme: &Theme, eq: &EqData, width: f32, height: f32) -> Row {
-    let devices_width: f32 = 188.0;
-    let separator_width: f32 = 1.0;
-    let gap: f32 = 12.0;
-    let eq_width = width - devices_width - separator_width - gap * 2.0;
-
-    let devices_card = devices_view(theme, devices_width, height);
-
-    let sep = Rectangle::new()
-        .width(separator_width)
-        .height(height - 4.0)
-        .fill(theme::with_opacity(theme.border, 0.5));
-
-    let eq_view = equalizer_view(theme, eq, eq_width, height);
-
-    Row::new(children![devices_card, sep, eq_view])
-        .gap(gap)
-        .align(Center)
-}
-
-fn devices_view(theme: &Theme, width: f32, _height: f32) -> Column {
-    let devices = AudioDevices::read();
-
-    let header_icon = Text::new("󰓃").size(12.0).font(fonts::NERD).tight().color(theme.accent);
-    let count_text = format!("Outputs ({})", devices.sinks.len());
-    let header_text = Text::new(&count_text).size(12.0).font(fonts::BODY).weight(Weight::SemiBold).color(theme.text);
-    let header = Row::new(children![header_icon, header_text]).gap(6.0).align(Center);
-
-    let mut sink_items: Vec<Box<dyn Widget>> = Vec::new();
-    if devices.sinks.is_empty() {
-        let empty = Text::new("No outputs detected")
-            .size(11.0)
-            .font(fonts::BODY)
-            .color(theme.muted_text);
-        sink_items.push(Box::new(empty));
-    } else {
-        for sink in &devices.sinks {
-            sink_items.push(Box::new(sink_item(theme, sink, width)));
-        }
-    }
-
-    let sinks_scroll = ScrollArea::new("audio-eq-sinks-scroll", Column::new(sink_items).width(width).gap(4.0))
-        .width(width)
-        .height(150.0);
-
-    let src_header_icon = Text::new("󰍬").size(12.0).font(fonts::NERD).tight().color(theme.accent);
-    let src_count_text = format!("Inputs ({})", devices.sources.len());
-    let src_header_text = Text::new(&src_count_text).size(12.0).font(fonts::BODY).weight(Weight::SemiBold).color(theme.text);
-    let src_header = Row::new(children![src_header_icon, src_header_text]).gap(6.0).align(Center);
-
-    let mut source_items: Vec<Box<dyn Widget>> = Vec::new();
-    if devices.sources.is_empty() {
-        let empty = Text::new("No inputs detected")
-            .size(11.0)
-            .font(fonts::BODY)
-            .color(theme.muted_text);
-        source_items.push(Box::new(empty));
-    } else {
-        for src in &devices.sources {
-            source_items.push(Box::new(source_item(theme, src, width)));
-        }
-    }
-
-    let sources_scroll = ScrollArea::new("audio-eq-sources-scroll", Column::new(source_items).width(width).gap(4.0))
-        .width(width)
-        .height(130.0);
-
-    let sep = Rectangle::new()
-        .width(width)
-        .height(1.0)
-        .fill(theme::with_opacity(theme.border, 0.4));
-
-    let mixer_icon = Text::new("󰓃").size(11.0).font(fonts::NERD).tight().color(theme.secondary_text);
-    let mixer_label = Text::new("Open Mixer").size(11.0).font(fonts::BODY).color(theme.secondary_text);
-    let mixer_btn = Rectangle::new()
-        .width(width)
-        .height(24.0)
-        .radius(6.0)
-        .fill(theme.surface)
-        .cursor(Pointer)
-        .on_click(|_| {
-            let _ = Command::new("ghostty").args(["-e", "wiremix"]).spawn();
-        })
-        .align_child(Center, Center)
-        .child(Row::new(children![mixer_icon, mixer_label]).gap(4.0).align(Center));
-
-    Column::new(children![header, sinks_scroll, sep, src_header, sources_scroll, mixer_btn])
-        .width(width)
-        .gap(6.0)
 }
 
 pub fn sink_item(theme: &Theme, sink: &AudioDevice, width: f32) -> Rectangle {
@@ -531,64 +398,6 @@ pub fn sink_item(theme: &Theme, sink: &AudioDevice, width: f32) -> Rectangle {
         .child(row)
 }
 
-
-fn source_item(theme: &Theme, source: &AudioDevice, width: f32) -> Rectangle {
-    let id = source.id;
-    let is_default = source.is_default;
-
-    let fill = if is_default {
-        theme.selected_surface
-    } else {
-        amane::Color::TRANSPARENT
-    };
-
-    let radio_icon = if is_default { "󰞌" } else { "󰝦" };
-    let radio_color = if is_default { theme.accent } else { theme.muted_text };
-
-    let dev_icon_color = if is_default { theme.accent } else { theme.secondary_text };
-    let text_color = if is_default { theme.text } else { theme.secondary_text };
-    let weight = if is_default { Weight::SemiBold } else { Weight::Regular };
-
-    let radio_w = Text::new(radio_icon).size(13.0).font(fonts::NERD).tight().color(radio_color);
-    let dev_icon_w = Text::new("󰍬").size(12.0).font(fonts::NERD).tight().color(dev_icon_color);
-
-    let label_w = width - 16.0 - 13.0 - 12.0 - 12.0;
-    let name_w = Text::new(&source.name).size(11.0).font(fonts::BODY).weight(weight).color(text_color).elide();
-    let name_box = Rectangle::new()
-        .width(label_w.max(50.0))
-        .height(16.0)
-        .align_child(Start, Center)
-        .child(name_w);
-
-    let row = Row::new(children![radio_w, dev_icon_w, name_box]).gap(6.0).align(Center);
-
-    Rectangle::new()
-        .width(width)
-        .height(26.0)
-        .radius(7.0)
-        .fill(fill)
-        .padding(Padding {
-            top: 2.0,
-            bottom: 2.0,
-            left: 8.0,
-            right: 8.0,
-        })
-        .cursor(Pointer)
-        .on_click(move |_| {
-            let _ = Command::new("wpctl").args(["set-default", &id.to_string()]).status();
-        })
-        .align_child(Start, Center)
-        .child(row)
-}
-
-fn equalizer_view(theme: &Theme, eq: &EqData, width: f32, height: f32) -> Column {
-    let preset_row = preset_selector(theme, &eq.active_preset, width);
-    let bands_grid = bands_row(theme, eq, width, height - 32.0);
-
-    Column::new(children![preset_row, bands_grid])
-        .width(width)
-        .gap(4.0)
-}
 
 pub fn preset_selector(theme: &Theme, active_preset: &str, width: f32) -> Row {
     let prev_btn = Rectangle::new()

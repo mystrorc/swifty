@@ -227,7 +227,7 @@ fn run_monitor_loop() {
                     let reader = BufReader::new(stdout);
                     for line in reader.lines() {
                         if let Ok(l) = line {
-                            if l.contains("WorkspacesChanged") || l.contains("Outputs") || l.contains("output") {
+                            if l.contains("OutputsChanged") {
                                 sync_and_guard();
                             }
                         } else {

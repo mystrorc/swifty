@@ -63,6 +63,15 @@ impl Service for PowerDevicesData {
     }
 
     fn update(&mut self) -> bool {
+        let is_visible = {
+            let overlay = Overlay::read();
+            overlay.control_center.shown && overlay.center_tab == 4
+        };
+
+        if !is_visible && self.laptop_battery.is_some() {
+            return false;
+        }
+
         let (ac_online, laptop, peripherals) = query_power_devices();
         self.ac_online = ac_online;
         self.laptop_battery = laptop;

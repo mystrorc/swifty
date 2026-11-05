@@ -40,6 +40,7 @@ impl Service for Profile {
     fn listen() {}
 }
 
+#[allow(dead_code)]
 impl Profile {
     pub fn name(&self) -> String {
         if !self.name.trim().is_empty() {

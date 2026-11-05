@@ -2,9 +2,13 @@ use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
+use std::sync::{LazyLock, Mutex};
 
 use amane::Service;
+
+static CACHED_WIDTHS: LazyLock<Mutex<HashMap<String, f32>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum HalfScreen {
@@ -44,9 +48,20 @@ impl Service for DesktopWindows {
                 Ok(mut process) => {
                     if let Some(stdout) = process.stdout.take() {
                         let reader = BufReader::new(stdout);
+                        let mut last_check = Instant::now() - Duration::from_secs(1);
                         for line in reader.lines() {
                             if let Ok(l) = line {
+                                if l.contains("OutputsChanged") {
+                                    if let Ok(mut cw) = CACHED_WIDTHS.lock() {
+                                        cw.clear();
+                                    }
+                                }
                                 if l.contains("Window") || l.contains("Workspace") {
+                                    let now = Instant::now();
+                                    if now.duration_since(last_check) < Duration::from_millis(200) {
+                                        continue;
+                                    }
+                                    last_check = now;
                                     let new_map = detect_occupied_windows();
                                     if Self::read().occupied != new_map {
                                         let mut state = Self::write();
@@ -97,18 +112,8 @@ fn detect_occupied_windows() -> HashMap<String, Option<HalfScreen>> {
         Err(_) => return results,
     };
 
-    let out_out = match Command::new("niri").args(["msg", "--json", "outputs"]).output() {
-        Ok(out) if out.status.success() => out,
-        _ => return results,
-    };
-    let out_json: serde_json::Value = match serde_json::from_slice(&out_out.stdout) {
-        Ok(v) => v,
-        Err(_) => return results,
-    };
-
     let Some(workspaces) = ws_json.as_array() else { return results; };
     let Some(windows) = win_json.as_array() else { return results; };
-    let Some(outputs) = out_json.as_object() else { return results; };
 
     // Map monitor_name -> active_workspace_id
     let mut mon_active_ws = HashMap::new();
@@ -123,13 +128,24 @@ fn detect_occupied_windows() -> HashMap<String, Option<HalfScreen>> {
         }
     }
 
-    // Map monitor_name -> logical_width
-    let mut mon_width = HashMap::new();
-    for (name, out) in outputs {
-        if let Some(w) = out.get("logical").and_then(|l| l.get("width")).and_then(|w| w.as_f64()) {
-            mon_width.insert(name.clone(), w as f32);
+    // Map monitor_name -> logical_width (cached to avoid forking on every check)
+    let mon_width = {
+        let mut cached = CACHED_WIDTHS.lock().unwrap();
+        if cached.is_empty() {
+            if let Ok(out_out) = Command::new("niri").args(["msg", "--json", "outputs"]).output() {
+                if let Ok(out_json) = serde_json::from_slice::<serde_json::Value>(&out_out.stdout) {
+                    if let Some(outputs) = out_json.as_object() {
+                        for (name, out) in outputs {
+                            if let Some(w) = out.get("logical").and_then(|l| l.get("width")).and_then(|w| w.as_f64()) {
+                                cached.insert(name.clone(), w as f32);
+                            }
+                        }
+                    }
+                }
+            }
         }
-    }
+        cached.clone()
+    };
 
     for (mon, ws_id) in mon_active_ws {
         let width = mon_width.get(&mon).copied().unwrap_or(1920.0);

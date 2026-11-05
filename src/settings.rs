@@ -141,6 +141,7 @@ const PAGES: [(Page, &str, &str, &str); 10] = [
 ];
 
 // something risky waiting for a yes before it is staged
+#[allow(dead_code)]
 pub enum Confirm {
     Integration {
         key: &'static str,

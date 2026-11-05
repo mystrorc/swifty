@@ -141,6 +141,15 @@ impl Service for SysmonData {
     }
 
     fn update(&mut self) -> bool {
+        let is_visible = {
+            let overlay = Overlay::read();
+            overlay.control_center.shown && overlay.center_tab == 1
+        };
+
+        if !is_visible && self.last_update.is_some() {
+            return false;
+        }
+
         let now = Instant::now();
         let dt = self.last_update.map(|t| (now - t).as_secs_f32()).unwrap_or(1.5).max(0.5);
         self.last_update = Some(now);

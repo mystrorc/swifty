@@ -52,14 +52,21 @@ fn run_listener() {
         let mut last_y_sign: i8 = 0;
         let mut last_y_reversal = Instant::now();
         let mut accumulated_dy: i32 = 0;
+        let mut last_setting_check = Instant::now() - Duration::from_secs(1);
+        let mut shake_enabled = false;
 
         while let Ok(count) = file.read(&mut buffer) {
             if count < 3 {
                 continue;
             }
 
-            if !Settings::read().flag("shake_cursor") {
-                thread::sleep(Duration::from_millis(500));
+            let now = Instant::now();
+            if now.duration_since(last_setting_check) >= Duration::from_millis(500) {
+                shake_enabled = Settings::read().flag("shake_cursor");
+                last_setting_check = now;
+            }
+
+            if !shake_enabled {
                 continue;
             }
 

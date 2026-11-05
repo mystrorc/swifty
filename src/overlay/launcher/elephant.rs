@@ -41,12 +41,14 @@ pub fn looks_like_math(query: &str) -> bool {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
 pub struct ElephantResponse {
     pub query: Option<String>,
     pub item: Option<ElephantItem>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
+#[allow(dead_code)]
 pub struct ElephantItem {
     #[serde(default)]
     pub identifier: String,

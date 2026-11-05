@@ -394,6 +394,7 @@ impl Overlay {
         overlay.dismiss_if_left();
     }
 
+    #[allow(dead_code)]
     pub fn toggle_audio_control(monitor: Option<&str>) {
         let mut overlay = Self::write();
 
