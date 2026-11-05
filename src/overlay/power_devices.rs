@@ -107,12 +107,327 @@ pub fn view(_overlay: &Overlay, _theme: &Theme, _screen: Region) -> Option<Panel
     None
 }
 
+// Power timeout presets
+const IDLE_PRESETS: [&str; 6] = ["Never", "1m", "2m", "5m", "10m", "15m"];
+const DISPLAY_PRESETS: [&str; 6] = ["Never", "2m", "5m", "10m", "15m", "30m"];
+const SLEEP_PRESETS: [&str; 6] = ["Never", "5m", "10m", "15m", "30m", "1h"];
+const SUSPEND_PRESETS: [&str; 6] = ["Never", "15m", "30m", "45m", "1h", "2h"];
+
+fn timeout_to_seconds(val: &str) -> u32 {
+    match val {
+        "1m" => 60,
+        "2m" => 120,
+        "5m" => 300,
+        "10m" => 600,
+        "15m" => 900,
+        "30m" => 1800,
+        "45m" => 2700,
+        "1h" => 3600,
+        "2h" => 7200,
+        "3h" => 10800,
+        _ => 0,
+    }
+}
+
+pub fn init_timeouts() {
+    apply_timeouts();
+}
+
+pub fn apply_timeouts() {
+    let settings = crate::settings::Settings::read();
+    let idle_str = settings.text("power_idle_timeout");
+    let display_str = settings.text("power_display_timeout");
+    let sleep_str = settings.text("power_sleep_timeout");
+    let suspend_str = settings.text("power_suspend_timeout");
+
+    let idle_secs = timeout_to_seconds(idle_str);
+    let display_secs = timeout_to_seconds(display_str);
+    let sleep_secs = timeout_to_seconds(sleep_str);
+    let suspend_secs = timeout_to_seconds(suspend_str);
+
+    // Save JSON state for any daemon or external tool
+    if let Ok(state_dir) = std::env::var("XDG_STATE_HOME")
+        .map(std::path::PathBuf::from)
+        .or_else(|_| std::env::var("HOME").map(|h| std::path::PathBuf::from(h).join(".local/state")))
+    {
+        let amane_dir = state_dir.join("amane");
+        let _ = std::fs::create_dir_all(&amane_dir);
+        let path = amane_dir.join("power_timeouts.json");
+        let json = format!(
+            r#"{{"idle":"{}","idle_secs":{},"display":"{}","display_secs":{},"sleep":"{}","sleep_secs":{},"suspend":"{}","suspend_secs":{}}}"#,
+            idle_str, idle_secs, display_str, display_secs, sleep_str, sleep_secs, suspend_str, suspend_secs
+        );
+        let _ = std::fs::write(path, json);
+    }
+
+    // Apply GNOME/Wayland session idle delay
+    std::thread::spawn(move || {
+        let _ = Command::new("gsettings")
+            .args(["set", "org.gnome.desktop.session", "idle-delay", &idle_secs.to_string()])
+            .status();
+
+        let _ = Command::new("gsettings")
+            .args(["set", "org.gnome.desktop.screensaver", "lock-delay", "0"])
+            .status();
+
+        let _ = Command::new("gsettings")
+            .args(["set", "org.gnome.desktop.screensaver", "lock-enabled", if sleep_secs > 0 { "true" } else { "false" }])
+            .status();
+    });
+}
+
+fn step_preset(current: &str, presets: &[&'static str], step: i32) -> &'static str {
+    let idx = presets.iter().position(|&p| p == current).unwrap_or(0);
+    let new_idx = if step < 0 {
+        idx.saturating_sub(1)
+    } else {
+        (idx + 1).min(presets.len() - 1)
+    };
+    presets[new_idx]
+}
+
+fn cycle_preset(current: &str, presets: &[&'static str]) -> &'static str {
+    let idx = presets.iter().position(|&p| p == current).unwrap_or(0);
+    presets[(idx + 1) % presets.len()]
+}
+
+fn timeout_column(
+    theme: &Theme,
+    title: &'static str,
+    icon: &'static str,
+    desc: &'static str,
+    key: &'static str,
+    presets: &'static [&'static str],
+    width: f32,
+    height: f32,
+) -> Rectangle {
+    let current_val = crate::settings::Settings::read().text(key);
+    let current_str: String = current_val.to_string();
+    let is_never = current_str == "Never";
+
+    let icon_w = Text::new(icon)
+        .size(13.0)
+        .font(fonts::NERD)
+        .tight()
+        .color(if is_never { theme.secondary_text } else { theme.accent });
+
+    let title_w = Text::new(title)
+        .size(11.5)
+        .font(fonts::BODY)
+        .weight(Weight::SemiBold)
+        .color(theme.text);
+
+    let desc_w = Text::new(desc)
+        .size(10.0)
+        .font(fonts::BODY)
+        .color(theme.muted_text)
+        .elide();
+
+    let title_row = Row::new(children![icon_w, title_w, desc_w])
+        .gap(4.0)
+        .align(Center);
+
+    let btn_size = 24.0;
+
+    let cur_for_dec = current_str.clone();
+    let btn_dec = Rectangle::new()
+        .width(btn_size)
+        .height(btn_size)
+        .radius(6.0)
+        .fill(theme.surface)
+        .cursor(Pointer)
+        .on_click(move |_| {
+            let next = step_preset(&cur_for_dec, presets, -1);
+            crate::settings::Settings::set(key, next);
+            apply_timeouts();
+        })
+        .align_child(Center, Center)
+        .child(
+            Text::new("󰍴")
+                .size(11.0)
+                .font(fonts::NERD)
+                .tight()
+                .color(theme.secondary_text),
+        );
+
+    let cur_for_inc = current_str.clone();
+    let btn_inc = Rectangle::new()
+        .width(btn_size)
+        .height(btn_size)
+        .radius(6.0)
+        .fill(theme.surface)
+        .cursor(Pointer)
+        .on_click(move |_| {
+            let next = step_preset(&cur_for_inc, presets, 1);
+            crate::settings::Settings::set(key, next);
+            apply_timeouts();
+        })
+        .align_child(Center, Center)
+        .child(
+            Text::new("󰐕")
+                .size(11.0)
+                .font(fonts::NERD)
+                .tight()
+                .color(theme.secondary_text),
+        );
+
+    let cur_for_cycle = current_str.clone();
+    let pill_w = (width - (btn_size * 2.0) - 16.0 - 10.0).max(46.0);
+    let (pill_bg, pill_fg, pill_weight) = if is_never {
+        (theme.surface, theme.secondary_text, Weight::Medium)
+    } else {
+        (theme.selected_surface, theme.accent, Weight::SemiBold)
+    };
+
+    let val_label = Text::new(&current_str)
+        .size(11.5)
+        .font(fonts::BODY)
+        .weight(pill_weight)
+        .color(pill_fg);
+
+    let val_pill = Rectangle::new()
+        .width(pill_w)
+        .height(btn_size)
+        .radius(6.0)
+        .fill(pill_bg)
+        .cursor(Pointer)
+        .on_click(move |_| {
+            let next = cycle_preset(&cur_for_cycle, presets);
+            crate::settings::Settings::set(key, next);
+            apply_timeouts();
+        })
+        .align_child(Center, Center)
+        .child(val_label);
+
+    let stepper_row = Row::new(children![btn_dec, val_pill, btn_inc])
+        .gap(5.0)
+        .align(Center);
+
+    let col_content = Column::new(children![title_row, stepper_row])
+        .gap(7.0)
+        .align(Center);
+
+    Rectangle::new()
+        .width(width)
+        .height(height)
+        .radius(10.0)
+        .fill(theme.selected_surface)
+        .padding(Padding {
+            top: 7.0,
+            bottom: 7.0,
+            left: 8.0,
+            right: 8.0,
+        })
+        .align_child(Center, Center)
+        .child(col_content)
+}
+
+fn timeouts_card(theme: &Theme, width: f32, height: f32) -> Rectangle {
+    let inner_width = width - CARD_PADDING * 2.0;
+
+    let header_icon = Text::new("󱎫")
+        .size(14.0)
+        .font(fonts::NERD)
+        .tight()
+        .color(theme.accent);
+
+    let header_title = Text::new("Power & Sleep Timeouts")
+        .size(12.5)
+        .font(fonts::BODY)
+        .weight(Weight::SemiBold)
+        .color(theme.text);
+
+    let header_left = Row::new(children![header_icon, header_title])
+        .gap(6.0)
+        .align(Center);
+
+    let header_hint = Text::new("Automatic system dimming, display sleep, lock, and suspend")
+        .size(11.0)
+        .font(fonts::BODY)
+        .color(theme.muted_text);
+
+    let header_row = Row::new(children![header_left, header_hint])
+        .width(inner_width)
+        .justify(SpaceBetween)
+        .align(Center);
+
+    let gap = 8.0;
+    let col_w = (inner_width - (gap * 3.0)) / 4.0;
+    let col_h = 68.0;
+
+    let col_idle = timeout_column(
+        theme,
+        "Idle",
+        "󰒲",
+        "Dim",
+        "power_idle_timeout",
+        &IDLE_PRESETS,
+        col_w,
+        col_h,
+    );
+
+    let col_display = timeout_column(
+        theme,
+        "Display",
+        "󰍹",
+        "Screen Off",
+        "power_display_timeout",
+        &DISPLAY_PRESETS,
+        col_w,
+        col_h,
+    );
+
+    let col_sleep = timeout_column(
+        theme,
+        "Sleep",
+        "󰌾",
+        "Lock",
+        "power_sleep_timeout",
+        &SLEEP_PRESETS,
+        col_w,
+        col_h,
+    );
+
+    let col_suspend = timeout_column(
+        theme,
+        "Suspend",
+        "󰤄",
+        "Standby",
+        "power_suspend_timeout",
+        &SUSPEND_PRESETS,
+        col_w,
+        col_h,
+    );
+
+    let cols_row = Row::new(children![col_idle, col_display, col_sleep, col_suspend])
+        .width(inner_width)
+        .gap(gap)
+        .align(Center);
+
+    let card_content = Column::new(children![header_row, cols_row])
+        .gap(8.0);
+
+    Rectangle::new()
+        .width(width)
+        .height(height)
+        .radius(CARD_RADIUS)
+        .fill(theme.surface)
+        .padding(Padding {
+            top: 10.0,
+            right: CARD_PADDING,
+            bottom: 10.0,
+            left: CARD_PADDING,
+        })
+        .child(card_content)
+}
+
 // Layout rendered inside the middle pulldown's Power tab:
-// Battery / Peripheral cards on top, Power Menu actions on the bottom
+// Battery / Peripheral cards on top, Timeout settings in the middle, Power Menu actions on the bottom
 pub fn embedded_view(theme: &Theme, width: f32, height: f32) -> Column {
-    let gap = 12.0;
+    let gap = 10.0;
     let power_bar_h = 52.0;
-    let top_h = height - power_bar_h - gap;
+    let timeouts_h = 118.0;
+    let top_h = height - power_bar_h - timeouts_h - (gap * 2.0);
 
     let col_width = (width - gap) / 2.0;
 
@@ -125,9 +440,10 @@ pub fn embedded_view(theme: &Theme, width: f32, height: f32) -> Column {
         .gap(gap)
         .align(Center);
 
+    let timeouts = timeouts_card(theme, width, timeouts_h);
     let power_bar = power_actions_bar(theme, width, power_bar_h);
 
-    Column::new(children![top_row, power_bar])
+    Column::new(children![top_row, timeouts, power_bar])
         .width(width)
         .height(height)
         .gap(gap)

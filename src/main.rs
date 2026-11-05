@@ -94,6 +94,7 @@ fn main() {
 
     // initialize blue light nightlight filter if previously enabled
     overlay::settings_menu::init_nightlight();
+    overlay::power_devices::init_timeouts();
 
 
     App::new()
