@@ -201,8 +201,7 @@ fn timeout_column(
     width: f32,
     height: f32,
 ) -> Rectangle {
-    let current_val = crate::settings::Settings::read().text(key);
-    let current_str: String = current_val.to_string();
+    let current_str = crate::settings::Settings::read().text(key).to_string();
     let is_never = current_str == "Never";
 
     let icon_w = Text::new(icon)
