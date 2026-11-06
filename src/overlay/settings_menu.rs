@@ -1371,7 +1371,16 @@ fn integrations_tab(theme: &Theme, width: f32) -> Column {
         "integration_obsidian",
     );
 
-    Column::new(children![cosmic_row, zed_row, gtk_row, term_row, obsidian_row]).gap(8.0)
+    let flectar_row = row_switch(
+        theme,
+        width,
+        "Flectar Mail Theme Sync",
+        "Sync palette colors to Flectar Mail email client",
+        settings.flag("integration_flectar"),
+        "integration_flectar",
+    );
+
+    Column::new(children![cosmic_row, zed_row, gtk_row, term_row, obsidian_row, flectar_row]).gap(8.0)
 }
 
 // ---------------- Helpers: Switch & Choice Rows ----------------

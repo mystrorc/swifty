@@ -7,7 +7,7 @@ use std::process::Command;
 use amane::Service;
 
 // every setting and the value it has until changed
-const DEFAULTS: [(&str, &str); 116] = [
+const DEFAULTS: [(&str, &str); 117] = [
     // appearance
     ("blur_strength", "1"),
     ("reduce_transparency", "false"),
@@ -135,6 +135,7 @@ const DEFAULTS: [(&str, &str); 116] = [
     ("integration_cosmic", "true"),
     ("integration_zed", "true"),
     ("integration_obsidian", "true"),
+    ("integration_flectar", "true"),
     // power timeouts
     ("power_idle_timeout", "5m"),
     ("power_display_timeout", "10m"),

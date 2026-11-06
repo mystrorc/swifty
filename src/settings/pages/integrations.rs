@@ -4,7 +4,7 @@ use super::super::page::Page;
 use super::super::{Confirm, Settings, Shown, switch};
 
 // the key, title, what the row says, and what turning it on does
-const INTEGRATIONS: [(&str, &str, &str, &str); 11] = [
+const INTEGRATIONS: [(&str, &str, &str, &str); 12] = [
     (
         "integration_gtk",
         "GTK",
@@ -70,6 +70,12 @@ const INTEGRATIONS: [(&str, &str, &str, &str); 11] = [
         "Obsidian",
         "Theme snippet for Obsidian vaults",
         "This writes generated dynamic amane CSS snippets into all configured Obsidian vaults and keeps them synchronized with the desktop wallpaper colors.",
+    ),
+    (
+        "integration_flectar",
+        "Flectar Mail",
+        "Slint email client theme integration",
+        "This synchronizes dynamic wallpaper colors, surfaces, borders, and dark/light mode directly into Flectar Mail's SQLite configuration database.",
     ),
 ];
 
