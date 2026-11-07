@@ -85,6 +85,7 @@ pub fn view(color: Color, blobs: Vec<Blob>, placement: Placement) -> Stack {
         let holder = Rectangle::new()
             .width(blob.width)
             .height(blob.height)
+            .clip()
             .translate(blob.x - placement.x, blob.y - placement.y)
             .child(Stack::new(vec![content]).width(Parent).height(Parent));
 

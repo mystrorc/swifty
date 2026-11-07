@@ -18,6 +18,7 @@ use crate::overlay::audio_control::AudioDevices;
 
 use super::{Overlay, PanelView, Region, power_devices, settings_menu, sysmon};
 use crate::liquid::Blob;
+use crate::settings::Settings;
 use crate::theme::{self, Theme};
 
 const MAX_WIDTH: f32 = 820.0;
@@ -58,29 +59,78 @@ pub fn view(overlay: &Overlay, theme: &Theme, screen: Region) -> Option<PanelVie
         return None;
     }
 
-    let width = MAX_WIDTH.min(screen.width - 64.0);
+    let target_width = MAX_WIDTH.min(screen.width - 64.0);
+    let settings = Settings::read();
+    let transition_style = settings.text("panel_transition");
 
-    let x = (screen.width - width) / 2.0;
+    let (x, y, current_width, current_height, radius, content_opacity) = match transition_style {
+        "slide" => {
+            let hidden = -(HEIGHT + HIDDEN_MARGIN);
+            let y = TOP_OFFSET + (hidden - TOP_OFFSET) * (1.0 - progress);
+            let x = (screen.width - target_width) / 2.0;
+            (x, y, target_width, HEIGHT, RADIUS, 1.0)
+        }
+        "fade" => {
+            let scale = 0.92 + 0.08 * progress;
+            let current_w = target_width * scale;
+            let current_h = HEIGHT * scale;
+            let x = (screen.width - current_w) / 2.0;
+            let y = TOP_OFFSET + (HEIGHT - current_h) / 2.0;
+            (x, y, current_w, current_h, RADIUS, progress.clamp(0.0, 1.0))
+        }
+        _ => {
+            // "drip" - Liquid Drip / Stretch
+            let start_width = 240.0f32.min(target_width);
+            let start_height = 24.0f32;
 
-    let hidden = -(HEIGHT + HIDDEN_MARGIN);
+            // Height stretches downward rapidly like a teardrop
+            let h_t = progress.powf(0.8);
+            let current_h = (start_height + (HEIGHT - start_height) * h_t).min(HEIGHT);
 
-    let y = TOP_OFFSET + (hidden - TOP_OFFSET) * (1.0 - progress);
+            // Width fans out as the droplet expands
+            let w_t = progress.powf(1.25);
+            let current_w = (start_width + (target_width - start_width) * w_t).min(target_width);
 
-    let blob = Blob::new(x, y, width, HEIGHT)
-        .radius(RADIUS)
-        .child(content(overlay, theme, width));
+            let y = TOP_OFFSET;
+            let x = (screen.width - current_w) / 2.0;
+
+            // Start pill-shaped and blend to card radius
+            let capsule_r = (current_h / 2.0).min(current_w / 2.0);
+            let radius = capsule_r * (1.0 - progress) + RADIUS * progress;
+
+            let opacity = progress.powf(1.8);
+            (x, y, current_w, current_h, radius, opacity)
+        }
+    };
+
+    let content_box = content(overlay, theme, target_width);
+    let wrapped_content = if progress < 0.999 {
+        let offset_x = (current_width - target_width) / 2.0;
+        Rectangle::new()
+            .width(target_width)
+            .height(HEIGHT)
+            .translate(offset_x, 0.0)
+            .opacity(content_opacity)
+            .child(content_box)
+    } else {
+        content_box
+    };
+
+    let blob = Blob::new(x, y, current_width, current_height)
+        .radius(radius)
+        .child(wrapped_content);
 
     let input = Region {
         x,
         y,
-        width,
-        height: HEIGHT,
+        width: current_width,
+        height: current_height,
     };
 
     let reach = Region {
-        x: x - SHADOW_MARGIN,
+        x: (screen.width - target_width) / 2.0 - SHADOW_MARGIN,
         y: 0.0,
-        width: width + SHADOW_MARGIN * 2.0,
+        width: target_width + SHADOW_MARGIN * 2.0,
         height: TOP_OFFSET + HEIGHT + SHADOW_MARGIN,
     };
 

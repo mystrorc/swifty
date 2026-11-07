@@ -8,6 +8,7 @@ use amane::{
 use super::{Overlay, PanelView, Region};
 use crate::fonts;
 use crate::liquid::Blob;
+use crate::settings::Settings;
 use crate::theme::Theme;
 
 const INPUT: &str = "app_menu_search";
@@ -110,30 +111,74 @@ pub fn view(overlay: &Overlay, theme: &Theme, screen: Region) -> Option<PanelVie
         return None;
     }
 
-    let width = WIDTH.min(screen.width - 24.0);
-    let height = HEIGHT.min(screen.height - 24.0);
+    let target_width = WIDTH.min(screen.width - 24.0);
+    let target_height = HEIGHT.min(screen.height - 24.0);
+    let settings = Settings::read();
+    let transition_style = settings.text("panel_transition");
 
-    let x = 12.0; // Left-aligned under the distro logo pill
+    let (x, y, current_width, current_height, radius, content_opacity) = match transition_style {
+        "slide" => {
+            let hidden = -(target_height + 32.0);
+            let y = TOP_OFFSET + (hidden - TOP_OFFSET) * (1.0 - progress);
+            (12.0, y, target_width, target_height, RADIUS, 1.0)
+        }
+        "fade" => {
+            let scale = 0.92 + 0.08 * progress;
+            let current_w = target_width * scale;
+            let current_h = target_height * scale;
+            let x = 12.0;
+            let y = TOP_OFFSET + (target_height - current_h) / 2.0;
+            (x, y, current_w, current_h, RADIUS, progress.clamp(0.0, 1.0))
+        }
+        _ => {
+            // "drip" - Liquid Drip / Stretch from distro pill
+            let start_width = 34.0f32.min(target_width);
+            let start_height = 24.0f32;
 
-    let hidden = -(height + 32.0);
-    let y = TOP_OFFSET + (hidden - TOP_OFFSET) * (1.0 - progress);
+            let h_t = progress.powf(0.8);
+            let current_h = (start_height + (target_height - start_height) * h_t).min(target_height);
 
-    let blob = Blob::new(x, y, width, height)
-        .radius(RADIUS)
-        .child(content(overlay, theme, width, height));
+            let w_t = progress.powf(1.25);
+            let current_w = (start_width + (target_width - start_width) * w_t).min(target_width);
+
+            let y = TOP_OFFSET;
+            let x = 12.0;
+
+            let capsule_r = (current_h / 2.0).min(current_w / 2.0);
+            let radius = capsule_r * (1.0 - progress) + RADIUS * progress;
+
+            let opacity = progress.powf(1.8);
+            (x, y, current_w, current_h, radius, opacity)
+        }
+    };
+
+    let content_box = content(overlay, theme, target_width, target_height);
+    let wrapped_content = if progress < 0.999 {
+        Rectangle::new()
+            .width(target_width)
+            .height(target_height)
+            .opacity(content_opacity)
+            .child(content_box)
+    } else {
+        content_box
+    };
+
+    let blob = Blob::new(x, y, current_width, current_height)
+        .radius(radius)
+        .child(wrapped_content);
 
     let input = Region {
         x,
         y,
-        width,
-        height,
+        width: current_width,
+        height: current_height,
     };
 
     let reach = Region {
-        x: (x - SHADOW_MARGIN).max(0.0),
+        x: (12.0 - SHADOW_MARGIN).max(0.0),
         y: 0.0,
-        width: width + SHADOW_MARGIN * 2.0,
-        height: TOP_OFFSET + height + SHADOW_MARGIN,
+        width: target_width + SHADOW_MARGIN * 2.0,
+        height: TOP_OFFSET + target_height + SHADOW_MARGIN,
     };
 
     Some(PanelView { blob, input, reach })

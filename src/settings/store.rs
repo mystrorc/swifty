@@ -7,7 +7,7 @@ use std::process::Command;
 use amane::Service;
 
 // every setting and the value it has until changed
-const DEFAULTS: [(&str, &str); 115] = [
+const DEFAULTS: [(&str, &str); 116] = [
     // appearance
     ("blur_strength", "1"),
     ("reduce_transparency", "false"),
@@ -101,6 +101,7 @@ const DEFAULTS: [(&str, &str); 115] = [
     ("launcher_escape_clears", "true"),
     ("click_outside_dismiss", "false"),
     ("animation_speed", "1"),
+    ("panel_transition", "drip"),
     ("reduce_motion", "false"),
     // floating widgets
     ("floating_visibility", "desktop"),

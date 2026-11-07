@@ -1107,6 +1107,19 @@ fn appearance_tab(theme: &Theme, width: f32) -> Column {
         ],
     );
 
+    let panel_trans = settings.text("panel_transition");
+    let panel_trans_row = row_choice(
+        theme,
+        width,
+        "Panel Transition",
+        "Animation style when opening pulldowns",
+        vec![
+            ("Liquid Drip", panel_trans == "drip" || panel_trans.is_empty(), "panel_transition", "drip"),
+            ("Pull Down", panel_trans == "slide", "panel_transition", "slide"),
+            ("Fade & Pop", panel_trans == "fade", "panel_transition", "fade"),
+        ],
+    );
+
     let speed = settings.text("animation_speed");
     let speed_row = row_choice(
         theme,
@@ -1153,7 +1166,7 @@ fn appearance_tab(theme: &Theme, width: f32) -> Column {
         "shake_cursor",
     );
 
-    Column::new(children![mode_row, speed_row, trans_row, blur_row, shake_row]).gap(8.0)
+    Column::new(children![mode_row, panel_trans_row, speed_row, trans_row, blur_row, shake_row]).gap(8.0)
 }
 
 fn bar_tab(theme: &Theme, width: f32) -> Column {
