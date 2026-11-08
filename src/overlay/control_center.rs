@@ -64,12 +64,6 @@ pub fn view(overlay: &Overlay, theme: &Theme, screen: Region) -> Option<PanelVie
     let transition_style = settings.text("panel_transition");
 
     let (x, y, current_width, current_height, radius, content_opacity) = match transition_style {
-        "slide" => {
-            let hidden = -(HEIGHT + HIDDEN_MARGIN);
-            let y = TOP_OFFSET + (hidden - TOP_OFFSET) * (1.0 - progress);
-            let x = (screen.width - target_width) / 2.0;
-            (x, y, target_width, HEIGHT, RADIUS, 1.0)
-        }
         "fade" => {
             let scale = 0.92 + 0.08 * progress;
             let current_w = target_width * scale;
@@ -78,7 +72,7 @@ pub fn view(overlay: &Overlay, theme: &Theme, screen: Region) -> Option<PanelVie
             let y = TOP_OFFSET + (HEIGHT - current_h) / 2.0;
             (x, y, current_w, current_h, RADIUS, progress.clamp(0.0, 1.0))
         }
-        _ => {
+        "drip" => {
             // "drip" - Liquid Drip / Stretch
             let start_width = 240.0f32.min(target_width);
             let start_height = 24.0f32;
@@ -101,10 +95,19 @@ pub fn view(overlay: &Overlay, theme: &Theme, screen: Region) -> Option<PanelVie
             let opacity = progress.powf(1.8);
             (x, y, current_w, current_h, radius, opacity)
         }
+        _ => {
+            // "slide" - Classic Liquid Metal Pull Down
+            let hidden = -(HEIGHT + HIDDEN_MARGIN);
+            let y = TOP_OFFSET + (hidden - TOP_OFFSET) * (1.0 - progress);
+            let x = (screen.width - target_width) / 2.0;
+            (x, y, target_width, HEIGHT, RADIUS, 1.0)
+        }
     };
 
     let content_box = content(overlay, theme, target_width);
-    let wrapped_content = if progress < 0.999 {
+    let wrapped_content = if transition_style == "slide" || transition_style.is_empty() {
+        content_box
+    } else if progress < 0.999 {
         let offset_x = (current_width - target_width) / 2.0;
         Rectangle::new()
             .width(target_width)

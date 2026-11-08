@@ -560,7 +560,7 @@ fn open_monitor_layout() {
     Overlay::write().control_center.hide();
     let home = std::env::var("HOME").unwrap_or_else(|_| String::from("/home/rcrout"));
     let script = format!("{home}/.config/amane/plugins/monitor-layout/monitor_layout.py");
-    let cmd = format!("gtk-launch io.github.cjgarcia1229.monitor-layout 2>/dev/null || python3 '{script}'");
+    let cmd = format!("gtk-launch io.github.kanshi_gtk4 2>/dev/null || kanshi-gtk4 2>/dev/null || python3 '{script}'");
     amane::spawn(&cmd);
 }
 
@@ -1114,8 +1114,8 @@ fn appearance_tab(theme: &Theme, width: f32) -> Column {
         "Panel Transition",
         "Animation style when opening pulldowns",
         vec![
-            ("Liquid Drip", panel_trans == "drip" || panel_trans.is_empty(), "panel_transition", "drip"),
-            ("Pull Down", panel_trans == "slide", "panel_transition", "slide"),
+            ("Liquid Metal", panel_trans == "slide" || panel_trans.is_empty(), "panel_transition", "slide"),
+            ("Liquid Drip", panel_trans == "drip", "panel_transition", "drip"),
             ("Fade & Pop", panel_trans == "fade", "panel_transition", "fade"),
         ],
     );

@@ -101,7 +101,7 @@ const DEFAULTS: [(&str, &str); 117] = [
     ("launcher_escape_clears", "true"),
     ("click_outside_dismiss", "false"),
     ("animation_speed", "1"),
-    ("panel_transition", "drip"),
+    ("panel_transition", "slide"),
     ("reduce_motion", "false"),
     // floating widgets
     ("floating_visibility", "desktop"),
