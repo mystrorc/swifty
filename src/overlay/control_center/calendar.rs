@@ -713,6 +713,8 @@ fn reminders_card(overlay: &Overlay, theme: &Theme, width: f32, height: f32) -> 
     .align(Center);
 
     let open_flectar_btn = Rectangle::new()
+        .width(52.0)
+        .height(20.0)
         .cursor(Pointer)
         .padding(Padding {
             top: 2.0,
