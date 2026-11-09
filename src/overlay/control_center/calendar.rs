@@ -698,21 +698,35 @@ fn reminders_card(overlay: &Overlay, theme: &Theme, width: f32, height: f32) -> 
     ])
     .align(Center);
 
-    let open_flectar_btn = Row::new(children![
+    let open_row = Row::new(children![
         Text::new("󰅒 ")
             .size(11.5)
             .font(fonts::NERD)
             .color(theme.accent),
-        Text::new("Open")
+        Text::new("Mail")
             .size(11.0)
             .font(fonts::BODY)
             .weight(Weight::Medium)
             .color(theme.accent),
     ])
-    .cursor(Pointer)
-    .on_click(|_| {
-        amane::spawn("gtk-launch com.flectar.mail 2>/dev/null || flectar-mail");
-    });
+    .gap(4.0)
+    .align(Center);
+
+    let open_flectar_btn = Rectangle::new()
+        .cursor(Pointer)
+        .padding(Padding {
+            top: 2.0,
+            bottom: 2.0,
+            left: 6.0,
+            right: 6.0,
+        })
+        .radius(6.0)
+        .fill(theme.hover_surface)
+        .align_child(Center, Center)
+        .child(open_row)
+        .on_click(|_| {
+            amane::spawn("gtk-launch com.flectar.mail 2>/dev/null || flectar-mail");
+        });
 
     let inner_width = width - 32.0;
 
@@ -1186,29 +1200,13 @@ fn cell(
         .weight(weight)
         .color(color);
 
-    let content: Box<dyn Widget> = if day.has_event && day.this_month {
-        let dot = Text::new("●")
-            .size(5.0)
-            .font(fonts::BODY)
-            .color(theme.accent);
-        Box::new(Column::new(children![number, dot]).gap(1.0).align(Center))
-    } else {
-        Box::new(number)
-    };
-
     let hover_key = hover_name.clone();
 
-    Rectangle::new()
+    let mut rect = Rectangle::new()
         .width(width)
         .height(height)
         .radius(8.0)
         .fill(fill)
-        .cursor(if day.this_month { Pointer } else { Default::default() })
-        .on_click(move |_| {
-            if day.this_month {
-                Overlay::write().selected_calendar_day = Some((dy, dm, dn));
-            }
-        })
         .on_hover(move |inside| {
             let needs_change = {
                 let o = Overlay::read();
@@ -1226,9 +1224,24 @@ fn cell(
                     o.hovered = None;
                 }
             }
-        })
-        .align_child(Center, Center)
-        .child(content)
+        });
+
+    if day.this_month {
+        rect = rect.cursor(Pointer).on_click(move |_| {
+            Overlay::write().selected_calendar_day = Some((dy, dm, dn));
+        });
+    }
+
+    if day.has_event && day.this_month {
+        let dot = Text::new("●")
+            .size(5.0)
+            .font(fonts::BODY)
+            .color(theme.accent);
+        rect.align_child(Center, Center)
+            .child(Column::new(children![number, dot]).gap(1.0).align(Center))
+    } else {
+        rect.align_child(Center, Center).child(number)
+    }
 }
 
 struct Day {
