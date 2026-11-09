@@ -68,6 +68,10 @@ impl Service for Clock {
 }
 
 impl Clock {
+    pub fn offset(&self) -> i64 {
+        self.offset
+    }
+
     // like "09:05 PM", or "21:05" with the 24 hour setting, and "21:05:09" with seconds
     pub fn time(&self, seconds: bool) -> String {
         let today = self.local.rem_euclid(SECONDS_PER_DAY);

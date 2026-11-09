@@ -79,6 +79,7 @@ pub struct Overlay {
 
     // the month the calendar shows, counted from this month
     pub calendar_month: i64,
+    pub selected_calendar_day: Option<(i64, i64, i64)>,
 
     // the network last asked to join, shown as connecting until it is up
     pub joining: Option<String>,
@@ -141,6 +142,7 @@ impl Service for Overlay {
             show_password: false,
             joining: None,
             calendar_month: 0,
+            selected_calendar_day: None,
             player: None,
             player_switch: motion::spatial(0.0, motion::FAST_SPATIAL),
             hovered_popup: None,

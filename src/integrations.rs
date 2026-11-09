@@ -1,7 +1,7 @@
 mod btop;
 mod cava;
 pub mod cosmic;
-mod flectar;
+pub mod flectar;
 mod flux;
 mod gtk;
 mod niri;

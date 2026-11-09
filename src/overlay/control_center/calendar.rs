@@ -340,7 +340,7 @@ fn left_column(overlay: &Overlay, theme: &Theme, width: f32, height: f32) -> Col
     let reminders_height = height - half_height - gap;
 
     let notifications = notifications_card(overlay, theme, width, half_height);
-    let reminders = reminders_card(theme, width, reminders_height);
+    let reminders = reminders_card(overlay, theme, width, reminders_height);
 
     Column::new(children![notifications, reminders])
         .width(width)
@@ -566,26 +566,117 @@ fn notification_item(theme: &Theme, notification: &Notification, width: f32) -> 
     card.child(row)
 }
 
-fn reminders_card(theme: &Theme, width: f32, height: f32) -> Rectangle {
-    let clock = Clock::read();
-    let (_, month, day) = clock.today();
-    let date_str = clock.date();
-    let weekday = date_str.split(',').next().unwrap_or("Today");
-    let month_name = MONTHS[(month - 1) as usize];
+fn flectar_event_row(
+    theme: &Theme,
+    event: &crate::integrations::flectar::CalendarEvent,
+    offset_secs: i64,
+    width: f32,
+) -> Rectangle {
+    let time_str = if event.all_day {
+        String::from("All day")
+    } else {
+        let local_secs = event.starts_at + offset_secs;
+        let day_secs = local_secs.rem_euclid(86400);
+        let h = day_secs / 3600;
+        let m = (day_secs % 3600) / 60;
+        let ampm = if h >= 12 { "PM" } else { "AM" };
+        let h12 = match h % 12 {
+            0 => 12,
+            other => other,
+        };
+        format!("{h12}:{m:02} {ampm}")
+    };
 
-    let title_str = format!("{weekday}, {month_name} {day}");
+    let summary = Text::new(&event.summary)
+        .size(12.0)
+        .font(fonts::BODY)
+        .weight(Weight::SemiBold)
+        .color(theme.text);
+
+    let mut subtitle_parts = vec![time_str];
+    if let Some(loc) = &event.location {
+        if !loc.trim().is_empty() {
+            subtitle_parts.push(loc.trim().to_string());
+        }
+    }
+
+    let sub_text = Text::new(subtitle_parts.join(" • "))
+        .size(10.5)
+        .font(fonts::BODY)
+        .color(theme.muted_text);
+
+    let icon = Text::new(if event.join_url.is_some() { "󰍫 " } else { "󰸗 " })
+        .size(13.0)
+        .font(fonts::NERD)
+        .color(theme.accent);
+
+    let text_col = Column::new(children![summary, sub_text]).gap(2.0);
+    let content_row = Row::new(children![icon, text_col]).gap(8.0).align(Center);
+
+    let join_url = event.join_url.clone();
+    Rectangle::new()
+        .width(width)
+        .height(44.0)
+        .radius(10.0)
+        .fill(theme.hover_surface)
+        .padding(Padding {
+            top: 5.0,
+            right: 10.0,
+            bottom: 5.0,
+            left: 10.0,
+        })
+        .cursor(Pointer)
+        .align_child(Start, Center)
+        .child(content_row)
+        .on_click(move |_| {
+            if let Some(url) = &join_url {
+                if !url.trim().is_empty() {
+                    amane::spawn(&format!("xdg-open '{url}'"));
+                    return;
+                }
+            }
+            amane::spawn("gtk-launch com.flectar.mail 2>/dev/null || flectar-mail");
+        })
+}
+
+fn reminders_card(overlay: &Overlay, theme: &Theme, width: f32, height: f32) -> Rectangle {
+    let clock = Clock::read();
+    let today = clock.today();
+    let (sel_year, sel_month, sel_day) = overlay.selected_calendar_day.unwrap_or(today);
+    let is_today = (sel_year, sel_month, sel_day) == today;
+
+    let sel_days = clock::days_since_1970(sel_year, sel_month, sel_day);
+    let weekday = match (sel_days + 4).rem_euclid(7) {
+        0 => "Sun",
+        1 => "Mon",
+        2 => "Tue",
+        3 => "Wed",
+        4 => "Thu",
+        5 => "Fri",
+        _ => "Sat",
+    };
+    let month_name = MONTHS[(sel_month - 1) as usize];
+    let title_str = if is_today {
+        format!("Today, {month_name} {sel_day}")
+    } else {
+        format!("{weekday}, {month_name} {sel_day}")
+    };
+
     let title_text = Text::new(title_str)
         .size(13.0)
         .font(fonts::BODY)
         .weight(Weight::SemiBold)
         .color(theme.text);
 
+    let offset_secs = clock.offset();
+    let flectar_events = crate::integrations::flectar::events_for_day(offset_secs, sel_year, sel_month, sel_day);
     let reminders = RemindersData::read();
-    let count = reminders.items.len();
-    let count_str = if count == 1 {
-        "1 event".to_string()
+
+    let total_count = flectar_events.len() + if is_today { reminders.items.len() } else { 0 };
+    let count_str = if total_count == 1 {
+        "1 item".to_string()
     } else {
-        format!("{count} events")
+        format!("{total_count} items")
     };
 
     let count_text = Text::new(count_str)
@@ -607,11 +698,51 @@ fn reminders_card(theme: &Theme, width: f32, height: f32) -> Rectangle {
     ])
     .align(Center);
 
+    let open_flectar_btn = Row::new(children![
+        Text::new("󰅒 ")
+            .size(11.5)
+            .font(fonts::NERD)
+            .color(theme.accent),
+        Text::new("Open")
+            .size(11.0)
+            .font(fonts::BODY)
+            .weight(Weight::Medium)
+            .color(theme.accent),
+    ])
+    .cursor(Pointer)
+    .on_click(|_| {
+        amane::spawn("gtk-launch com.flectar.mail 2>/dev/null || flectar-mail");
+    });
+
     let inner_width = width - 32.0;
 
+    let header_row = Row::new(children![
+        header_title,
+        open_flectar_btn,
+    ])
+    .width(inner_width)
+    .justify(SpaceBetween)
+    .align(Center);
+
     let mut reminder_rows: Vec<Box<dyn Widget>> = Vec::new();
-    if reminders.items.is_empty() {
-        let empty_text = Text::new("No events or reminders")
+
+    for event in &flectar_events {
+        reminder_rows.push(Box::new(flectar_event_row(theme, event, offset_secs, inner_width)));
+    }
+
+    if is_today {
+        for item in &reminders.items {
+            reminder_rows.push(Box::new(reminder_row(theme, item, inner_width)));
+        }
+    }
+
+    if reminder_rows.is_empty() {
+        let empty_msg = if is_today {
+            "No events or reminders today"
+        } else {
+            "No events scheduled for this day"
+        };
+        let empty_text = Text::new(empty_msg)
             .size(11.5)
             .font(fonts::BODY)
             .color(theme.muted_text);
@@ -622,10 +753,6 @@ fn reminders_card(theme: &Theme, width: f32, height: f32) -> Rectangle {
                 .align_child(Center, Center)
                 .child(empty_text),
         ));
-    } else {
-        for item in &reminders.items {
-            reminder_rows.push(Box::new(reminder_row(theme, item, inner_width)));
-        }
     }
 
     let scroll_height = (height - 90.0).max(36.0);
@@ -638,7 +765,7 @@ fn reminders_card(theme: &Theme, width: f32, height: f32) -> Rectangle {
 
     let input_bar = reminder_input_bar(theme, inner_width);
 
-    let col = Column::new(children![header_title, scroll_area, input_bar])
+    let col = Column::new(children![header_row, scroll_area, input_bar])
         .gap(6.0)
         .width(inner_width);
 
@@ -861,7 +988,11 @@ fn today_button(theme: &Theme) -> Rectangle {
             right: 10.0,
         })
         .cursor(Pointer)
-        .on_click(|_| Overlay::write().calendar_month = 0)
+        .on_click(|_| {
+            let mut o = Overlay::write();
+            o.calendar_month = 0;
+            o.selected_calendar_day = None;
+        })
         .align_child(Center, Center)
         .child(
             Text::new("Today")
@@ -900,7 +1031,11 @@ fn month(
     if offset != 0 {
         title_bar = title_bar
             .cursor(Pointer)
-            .on_click(|_| Overlay::write().calendar_month = 0);
+            .on_click(|_| {
+            let mut o = Overlay::write();
+            o.calendar_month = 0;
+            o.selected_calendar_day = None;
+        });
     }
 
     let weekdays_h = 18.0;
@@ -981,6 +1116,12 @@ fn cell(
     height: f32,
 ) -> Rectangle {
     let is_hovered = overlay.hovered.as_deref() == Some(&hover_name);
+    let is_selected = match overlay.selected_calendar_day {
+        Some((y, m, d)) => y == day.year && m == day.month && d == day.number,
+        None => false,
+    };
+
+    let (dy, dm, dn) = (day.year, day.month, day.number);
 
     if day.today {
         let circle_size = width.min(height).min(38.0);
@@ -992,7 +1133,7 @@ fn cell(
             .color(theme.on_accent);
 
         let dot = Text::new("●")
-            .size(6.0)
+            .size(5.0)
             .font(fonts::BODY)
             .color(theme.on_accent);
 
@@ -1009,24 +1150,32 @@ fn cell(
         return Rectangle::new()
             .width(width)
             .height(height)
+            .cursor(Pointer)
             .align_child(Center, Center)
-            .child(circle);
+            .child(circle)
+            .on_click(move |_| {
+                Overlay::write().selected_calendar_day = Some((dy, dm, dn));
+            });
     }
 
-    let fill = if day.this_month && is_hovered {
+    let fill = if is_selected {
         theme.selected_surface
+    } else if day.this_month && is_hovered {
+        theme.hover_surface
     } else {
         Color::TRANSPARENT
     };
 
-    let color = if day.this_month {
+    let color = if is_selected {
+        theme.accent
+    } else if day.this_month {
         theme.text
     } else {
         theme::with_opacity(theme.secondary_text, 0.4)
     };
 
-    let weight = if day.this_month {
-        Weight::Regular
+    let weight = if is_selected || day.this_month {
+        Weight::Medium
     } else {
         Weight::Light
     };
@@ -1037,37 +1186,58 @@ fn cell(
         .weight(weight)
         .color(color);
 
+    let content: Box<dyn Widget> = if day.has_event && day.this_month {
+        let dot = Text::new("●")
+            .size(5.0)
+            .font(fonts::BODY)
+            .color(theme.accent);
+        Box::new(Column::new(children![number, dot]).gap(1.0).align(Center))
+    } else {
+        Box::new(number)
+    };
+
+    let hover_key = hover_name.clone();
+
     Rectangle::new()
         .width(width)
         .height(height)
         .radius(8.0)
         .fill(fill)
+        .cursor(if day.this_month { Pointer } else { Default::default() })
+        .on_click(move |_| {
+            if day.this_month {
+                Overlay::write().selected_calendar_day = Some((dy, dm, dn));
+            }
+        })
         .on_hover(move |inside| {
             let needs_change = {
                 let o = Overlay::read();
                 if inside {
-                    o.hovered.as_ref() != Some(&hover_name)
+                    o.hovered.as_ref() != Some(&hover_key)
                 } else {
-                    o.hovered.as_ref() == Some(&hover_name)
+                    o.hovered.as_ref() == Some(&hover_key)
                 }
             };
             if needs_change {
                 let mut o = Overlay::write();
                 if inside {
-                    o.hovered = Some(hover_name.clone());
-                } else if o.hovered.as_ref() == Some(&hover_name) {
+                    o.hovered = Some(hover_key.clone());
+                } else if o.hovered.as_ref() == Some(&hover_key) {
                     o.hovered = None;
                 }
             }
         })
         .align_child(Center, Center)
-        .child(number)
+        .child(content)
 }
 
 struct Day {
     number: i64,
     this_month: bool,
     today: bool,
+    has_event: bool,
+    year: i64,
+    month: i64,
 }
 
 fn days(today: (i64, i64, i64), year: i64, month: i64) -> Vec<Day> {
@@ -1077,17 +1247,22 @@ fn days(today: (i64, i64, i64), year: i64, month: i64) -> Vec<Day> {
 
     let (today_year, today_month, today_day) = today;
     let today_days = clock::days_since_1970(today_year, today_month, today_day);
+    let offset_secs = Clock::read().offset();
 
     let mut days = Vec::with_capacity(ROWS * 7);
 
     for index in 0..(ROWS * 7) as i64 {
         let date = start + index;
-        let (_, date_month, date_day) = clock::civil_date(date);
+        let (date_year, date_month, date_day) = clock::civil_date(date);
+        let has_event = crate::integrations::flectar::has_event_on(offset_secs, date_year, date_month, date_day);
 
         days.push(Day {
             number: date_day,
             this_month: date_month == month,
             today: date == today_days,
+            has_event,
+            year: date_year,
+            month: date_month,
         });
     }
 
