@@ -15,7 +15,7 @@ use amane::{
     SpaceBetween, Stack, Text, Weight, Widget, Window, children,
 };
 
-pub use store::Settings;
+pub use store::{Settings, active_cursor_theme, refresh_cursor_appearance};
 
 use crate::fonts;
 use crate::theme::{self, Theme};

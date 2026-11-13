@@ -2,6 +2,7 @@ mod app_icon;
 mod bar;
 mod clock;
 mod converter;
+pub mod cursor_glow;
 mod floating;
 mod fonts;
 mod integrations;
@@ -83,6 +84,9 @@ fn main() {
     drop(overlay::power_devices::PowerDevicesData::read());
     drop(overlay::audio_control::AudioDevices::read());
     drop(overlay::control_center::audio_eq::EqData::read());
+
+    // initialize cursor appearance and luminous glow if active
+    settings::refresh_cursor_appearance();
 
     // shake-to-find cursor background service
     drop(shake_cursor::ShakeCursor::read());

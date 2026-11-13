@@ -7,13 +7,17 @@ use std::process::Command;
 use amane::Service;
 
 // every setting and the value it has until changed
-const DEFAULTS: [(&str, &str); 117] = [
+const DEFAULTS: [(&str, &str); 121] = [
     // appearance
     ("blur_strength", "1"),
     ("reduce_transparency", "false"),
     ("font_family", "Poppins"),
     ("cursor_theme", "Adwaita"),
     ("cursor_size", "24"),
+    ("cursor_glow", "false"),
+    ("cursor_glow_mode", "theme"),
+    ("cursor_glow_color", "#00d2ff"),
+    ("cursor_glow_radius", "5"),
     ("shake_cursor", "true"),
     ("window_corner_radius", "12"),
     ("window_border_width", "2"),
@@ -323,8 +327,32 @@ impl Settings {
     }
 }
 
+pub fn active_cursor_theme() -> String {
+    let settings = Settings::read();
+    let base_theme = settings.text("cursor_theme");
+    if settings.flag("cursor_glow") {
+        let mode = settings.text("cursor_glow_mode");
+        let color_hex = if mode == "custom" {
+            settings.text("cursor_glow_color").to_string()
+        } else {
+            let acc = crate::theme::target().accent;
+            crate::integrations::hex(acc)
+        };
+        let radius: usize = settings.text("cursor_glow_radius").parse().unwrap_or(5);
+        crate::cursor_glow::ensure_glow_theme(base_theme, &color_hex, radius)
+            .unwrap_or_else(|_| base_theme.to_string())
+    } else {
+        base_theme.to_string()
+    }
+}
+
+pub fn refresh_cursor_appearance() {
+    let settings = Settings::read();
+    apply_appearance(&settings);
+}
+
 fn apply_appearance(settings: &Settings) {
-    let theme = settings.text("cursor_theme");
+    let theme = active_cursor_theme();
     let size = settings.text("cursor_size");
     let font = settings.text("font_family");
 

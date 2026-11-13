@@ -152,7 +152,7 @@ fn run_listener() {
 
 fn trigger_shake_effect() {
     let settings = Settings::read();
-    let theme = settings.text("cursor_theme").to_string();
+    let theme = crate::settings::active_cursor_theme();
     let normal_size = if settings.text("cursor_size").is_empty() {
         "24".to_string()
     } else {

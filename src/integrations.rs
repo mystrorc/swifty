@@ -121,6 +121,14 @@ fn run_export_if_changed() {
     for (_, export) in turned_on {
         export(&theme);
     }
+
+    let (glow_on, glow_theme_mode) = {
+        let s = Settings::read();
+        (s.flag("cursor_glow"), s.text("cursor_glow_mode") == "theme")
+    };
+    if glow_on && glow_theme_mode {
+        crate::settings::refresh_cursor_appearance();
+    }
 }
 
 fn fingerprint(theme: &Theme) -> String {

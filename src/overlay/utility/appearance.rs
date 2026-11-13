@@ -27,6 +27,7 @@ const SUBTAB_HEIGHT: f32 = 30.0;
 const CHECK: &str = "󰄬";
 const PALETTE_ICON: &str = "󰏘";
 const CURSOR_ICON: &str = "󰍽";
+const GLOW_ICON: &str = "󰵛";
 const FONT_ICON: &str = "󰛄";
 const CHEVRON_DOWN: &str = "󰅀";
 const CHEVRON_UP: &str = "󰅃";
@@ -639,11 +640,23 @@ fn cursor_view(overlay: &Overlay, theme: &Theme, width: f32) -> Column {
     let current_cursor = settings.text("cursor_theme");
     let current_size = settings.text("cursor_size");
     let shake_enabled = settings.flag("shake_cursor");
+    let glow_enabled = settings.flag("cursor_glow");
+    let glow_mode = settings.text("cursor_glow_mode");
+    let glow_color = settings.text("cursor_glow_color");
 
     let mut items: Vec<Box<dyn Widget>> = Vec::new();
 
     items.push(Box::new(section_label("Cursor size", theme, width)));
     items.push(Box::new(size_row(overlay, theme, current_size, width)));
+
+    items.push(Box::new(section_label("Cursor glow", theme, width)));
+    items.push(Box::new(glow_card(overlay, theme, glow_enabled, width)));
+    if glow_enabled {
+        items.push(Box::new(glow_mode_row(overlay, theme, glow_mode, width)));
+        if glow_mode == "custom" {
+            items.push(Box::new(glow_colors_row(overlay, theme, glow_color, width)));
+        }
+    }
 
     items.push(Box::new(section_label("Shake gesture", theme, width)));
     items.push(Box::new(shake_card(overlay, theme, shake_enabled, width)));
@@ -655,6 +668,175 @@ fn cursor_view(overlay: &Overlay, theme: &Theme, width: f32) -> Column {
     }
 
     Column::new(items).width(width).gap(ITEM_GAP)
+}
+
+fn glow_card(overlay: &Overlay, theme: &Theme, enabled: bool, width: f32) -> Rectangle {
+    let hover_name = String::from("appearance:glow");
+
+    let fill = if hovered(overlay, &hover_name) {
+        theme.hover_surface
+    } else {
+        theme.surface
+    };
+
+    let switch_fill = if enabled { theme.accent } else { theme.border };
+    let status_text = if enabled { "Enabled" } else { "Disabled" };
+
+    let text_width = width - CARD_PADDING * 2.0 - ICON_SIZE - 60.0;
+
+    let content = Row::new(children![
+        Rectangle::new()
+            .width(ICON_SIZE)
+            .height(ICON_SIZE)
+            .radius(8.0)
+            .fill(theme.selected_surface)
+            .align_child(Center, Center)
+            .child(Text::new(GLOW_ICON).size(14.0).font(fonts::NERD).tight().color(theme.accent)),
+        Rectangle::new()
+            .width(text_width)
+            .height(ICON_SIZE)
+            .align_child(Start, Center)
+            .child(
+                Column::new(children![
+                    Text::new("Cursor glow halo")
+                        .size(11.0)
+                        .font(fonts::BODY)
+                        .weight(Weight::SemiBold)
+                        .color(theme.text),
+                    Text::new("Luminous colored halo radiating around cursor")
+                        .size(9.0)
+                        .font(fonts::BODY)
+                        .color(theme.secondary_text),
+                ])
+                .gap(1.0),
+            ),
+        Rectangle::new()
+            .width(50.0)
+            .height(20.0)
+            .radius(10.0)
+            .fill(switch_fill)
+            .align_child(Center, Center)
+            .child(
+                Text::new(status_text)
+                    .size(9.0)
+                    .font(fonts::BODY)
+                    .weight(Weight::SemiBold)
+                    .color(if enabled { theme.on_accent } else { theme.muted_text }),
+            ),
+    ])
+    .gap(10.0)
+    .align(Center);
+
+    Rectangle::new()
+        .width(width)
+        .height(CARD_HEIGHT)
+        .radius(10.0)
+        .fill(fill)
+        .cursor(Pointer)
+        .padding(Padding {
+            top: CARD_PADDING,
+            right: CARD_PADDING,
+            bottom: CARD_PADDING,
+            left: CARD_PADDING,
+        })
+        .on_hover(move |inside| hover(hover_name.clone(), inside))
+        .on_click(move |_| Settings::set("cursor_glow", !enabled))
+        .child(content)
+}
+
+fn glow_mode_row(overlay: &Overlay, theme: &Theme, current_mode: &str, width: f32) -> Row {
+    let modes = [("Match theme", "theme"), ("Pick a color", "custom")];
+    let count = modes.len() as f32;
+    let gap = 6.0;
+    let pill_width = (width - gap * (count - 1.0)) / count;
+
+    let mut pills: Vec<Box<dyn Widget>> = Vec::new();
+
+    for (label, mode) in modes {
+        let active = current_mode == mode;
+        let hover_name = format!("appearance:glow_mode:{mode}");
+
+        let fill = if active {
+            theme.accent
+        } else if hovered(overlay, &hover_name) {
+            theme.hover_surface
+        } else {
+            theme.surface
+        };
+
+        let text_color = if active { theme.on_accent } else { theme.text };
+
+        let pill = Rectangle::new()
+            .width(pill_width)
+            .height(28.0)
+            .radius(14.0)
+            .fill(fill)
+            .cursor(Pointer)
+            .on_hover(move |inside| hover(hover_name.clone(), inside))
+            .on_click(move |_| Settings::set("cursor_glow_mode", mode))
+            .align_child(Center, Center)
+            .child(
+                Text::new(label)
+                    .size(11.0)
+                    .font(fonts::BODY)
+                    .weight(if active { Weight::SemiBold } else { Weight::Regular })
+                    .color(text_color),
+            );
+
+        pills.push(Box::new(pill));
+    }
+
+    Row::new(pills).width(width).height(28.0).gap(gap).justify(SpaceBetween).align(Center)
+}
+
+fn glow_colors_row(overlay: &Overlay, theme: &Theme, current_color: &str, width: f32) -> Row {
+    let colors = [
+        ("#00d2ff", "Cyan"),
+        ("#3b82f6", "Blue"),
+        ("#ff2a85", "Pink"),
+        ("#a855f7", "Purple"),
+        ("#10b981", "Green"),
+        ("#f59e0b", "Gold"),
+        ("#ef4444", "Red"),
+        ("#f8fafc", "White"),
+    ];
+
+    let count = colors.len() as f32;
+    let gap = 5.0;
+    let swatch_size = ((width - gap * (count - 1.0)) / count).floor();
+
+    let mut swatches: Vec<Box<dyn Widget>> = Vec::new();
+
+    for (hex, _name) in colors {
+        let active = current_color.eq_ignore_ascii_case(hex);
+        let hover_name = format!("appearance:glow_col:{hex}");
+        let (r, g, b) = crate::cursor_glow::parse_hex_color(hex);
+        let swatch_color = amane::Color::rgb(r, g, b);
+
+        let border_color = if active {
+            theme.text
+        } else if hovered(overlay, &hover_name) {
+            theme.secondary_text
+        } else {
+            theme.border
+        };
+
+        let border_width = if active { 2.5 } else { 1.0 };
+
+        let swatch = Rectangle::new()
+            .width(swatch_size)
+            .height(26.0)
+            .radius(6.0)
+            .fill(swatch_color)
+            .border(border_width, border_color)
+            .cursor(Pointer)
+            .on_hover(move |inside| hover(hover_name.clone(), inside))
+            .on_click(move |_| Settings::set("cursor_glow_color", hex));
+
+        swatches.push(Box::new(swatch));
+    }
+
+    Row::new(swatches).width(width).height(26.0).gap(gap).align(Center)
 }
 
 fn size_row(overlay: &Overlay, theme: &Theme, current_size: &str, width: f32) -> Row {

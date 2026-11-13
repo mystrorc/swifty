@@ -24,6 +24,29 @@ pub const SIZES: [(&str, &str); 4] = [
     ("Extra Large (64px)", "64"),
 ];
 
+pub const GLOW_MODES: [(&str, &str); 2] = [
+    ("Match theme accent", "theme"),
+    ("Pick a color", "custom"),
+];
+
+pub const GLOW_COLORS: [(&str, &str); 9] = [
+    ("Neon Cyan", "#00d2ff"),
+    ("Electric Blue", "#3b82f6"),
+    ("Neon Pink", "#ff2a85"),
+    ("Neon Purple", "#a855f7"),
+    ("Emerald Green", "#10b981"),
+    ("Amber Gold", "#f59e0b"),
+    ("Crimson Red", "#ef4444"),
+    ("Cyber Yellow", "#eab308"),
+    ("Arctic White", "#f8fafc"),
+];
+
+pub const GLOW_SIZES: [(&str, &str); 3] = [
+    ("Subtle (3px)", "3"),
+    ("Medium (5px)", "5"),
+    ("Vibrant (8px)", "8"),
+];
+
 pub const FONTS: [(&str, &str); 10] = [
     ("Poppins (Default)", "Poppins"),
     ("Inter", "Inter"),
@@ -124,6 +147,37 @@ pub fn build(page: &mut Page) {
         "shake_cursor",
         "Shake to find cursor",
         "Temporarily enlarge the cursor when shaken rapidly",
+    );
+
+    switch::add(
+        page,
+        "cursor_glow",
+        "Cursor glow",
+        "Render a luminous colored glow halo around the cursor pointer",
+    );
+
+    choice::add(
+        page,
+        "cursor_glow_mode",
+        "Glow color mode",
+        "Match desktop theme accent or pick a custom color",
+        &GLOW_MODES,
+    );
+
+    choice::add(
+        page,
+        "cursor_glow_color",
+        "Glow color",
+        "Color of the cursor glow halo when custom mode is chosen",
+        &GLOW_COLORS,
+    );
+
+    choice::add(
+        page,
+        "cursor_glow_radius",
+        "Glow radius",
+        "Spread and size of the luminous cursor glow halo",
+        &GLOW_SIZES,
     );
 
     // Wallpaper blur and transparency
