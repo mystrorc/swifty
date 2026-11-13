@@ -78,8 +78,34 @@ impl Service for EqData {
         data
     }
 
-    // only changes through user input
-    fn listen() {}
+    // background watcher ensuring equalizer DSP node is active and filtered
+    fn listen() {
+        let mut last_node_id = EqData::read().node_id;
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            let found = find_equalizer_node_id();
+            if found.is_some() && found != last_node_id {
+                let (id_to_apply, bypassed, gains) = {
+                    let mut data = EqData::write();
+                    data.node_id = found;
+                    last_node_id = found;
+                    (found, data.is_bypassed, data.gains_10)
+                };
+
+                if let Some(id) = id_to_apply {
+                    if bypassed {
+                        apply_all_gains_to_node(id, &[0.0; 10]);
+                    } else {
+                        apply_all_gains_to_node(id, &gains);
+                    }
+                }
+            } else if found.is_none() && last_node_id.is_some() {
+                last_node_id = None;
+                let mut data = EqData::write();
+                data.node_id = None;
+            }
+        }
+    }
 }
 
 fn eq_state_path() -> String {
@@ -158,15 +184,26 @@ fn find_equalizer_node_id() -> Option<u32> {
                     current_id = id_str.trim().parse::<u32>().ok();
                 }
             }
-        } else if trimmed.contains("node.name = \"Equalizer\"") {
+        } else if (trimmed.starts_with("node.name = \"Equalizer\"") && !trimmed.contains("Equalizer-output"))
+            || trimmed == "node.name = \"RustEQ\""
+        {
             return current_id;
         }
     }
-    current_id
+    None
+}
+
+fn get_or_find_node_id(data: &mut EqData) -> Option<u32> {
+    if let Some(id) = data.node_id {
+        return Some(id);
+    }
+    let found = find_equalizer_node_id();
+    data.node_id = found;
+    found
 }
 
 fn apply_all_gains_to_node(node_id: u32, gains: &[f32; 10]) {
-    let mut params = String::from("{ params = [ ");
+    let mut params = String::from("{ params = [ \"eq_preamp:Gain\" 0.00 ");
     for (i, &g) in gains.iter().enumerate() {
         let b = i * 2 + 1;
         params.push_str(&format!("\"eq_band_{b}:Gain\" {g:.1} "));
@@ -203,7 +240,8 @@ pub fn set_preset(preset: &str) {
         let mut data = EqData::write();
         data.active_preset = preset_name.to_string();
         data.gains_10 = gains;
-        (data.node_id, data.is_bypassed)
+        let id = get_or_find_node_id(&mut data);
+        (id, data.is_bypassed)
     };
 
     save_eq_state(preset_name, bypassed, &gains);
@@ -235,7 +273,8 @@ pub fn toggle_bypass() {
     let (new_bypassed, node_id, gains, preset) = {
         let mut eq = EqData::write();
         eq.is_bypassed = !eq.is_bypassed;
-        (eq.is_bypassed, eq.node_id, eq.gains_10, eq.active_preset.clone())
+        let id = get_or_find_node_id(&mut eq);
+        (eq.is_bypassed, id, eq.gains_10, eq.active_preset.clone())
     };
 
     save_eq_state(&preset, new_bypassed, &gains);
@@ -260,7 +299,8 @@ pub fn adjust_band_gain(band_idx: usize, delta: f32) {
         eq.gains_10[band_idx] = (g * 2.0).round() / 2.0;
         eq.active_preset = String::from("Custom");
         save_eq_state("Custom", eq.is_bypassed, &eq.gains_10);
-        (eq.gains_10[band_idx], eq.node_id, eq.is_bypassed)
+        let id = get_or_find_node_id(&mut eq);
+        (eq.gains_10[band_idx], id, eq.is_bypassed)
     };
 
     if let Some(id) = node_id {
@@ -285,7 +325,8 @@ pub fn set_band_gain(band_idx: usize, gain: f32) {
         eq.gains_10[band_idx] = clamped;
         eq.active_preset = String::from("Custom");
         save_eq_state("Custom", eq.is_bypassed, &eq.gains_10);
-        (eq.node_id, eq.is_bypassed)
+        let id = get_or_find_node_id(&mut eq);
+        (id, eq.is_bypassed)
     };
 
     if let Some(id) = node_id {

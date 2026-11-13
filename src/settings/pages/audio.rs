@@ -359,11 +359,13 @@ fn find_equalizer_node_id() -> Option<u32> {
                     current_id = id_str.trim().parse::<u32>().ok();
                 }
             }
-        } else if trimmed.contains("node.name = \"Equalizer\"") || trimmed.contains("node.name = \"RustEQ\"") {
+        } else if (trimmed.starts_with("node.name = \"Equalizer\"") && !trimmed.contains("Equalizer-output"))
+            || trimmed == "node.name = \"RustEQ\""
+        {
             return current_id;
         }
     }
-    current_id
+    None
 }
 
 impl AudioEqState {
