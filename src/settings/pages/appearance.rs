@@ -24,6 +24,11 @@ pub const SIZES: [(&str, &str); 4] = [
     ("Extra Large (64px)", "64"),
 ];
 
+pub const GLOW_SHAPES: [(&str, &str); 2] = [
+    ("Circle (Radial fade)", "circle"),
+    ("Outline (Cursor contour)", "outline"),
+];
+
 pub const GLOW_MODES: [(&str, &str); 2] = [
     ("Match theme accent", "theme"),
     ("Pick a color", "custom"),
@@ -154,6 +159,14 @@ pub fn build(page: &mut Page) {
         "cursor_glow",
         "Cursor glow",
         "Render a luminous colored glow halo around the cursor pointer",
+    );
+
+    choice::add(
+        page,
+        "cursor_glow_shape",
+        "Glow shape",
+        "Smooth circular radial fade or silhouette contour",
+        &GLOW_SHAPES,
     );
 
     choice::add(

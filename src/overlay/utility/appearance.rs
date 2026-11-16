@@ -641,6 +641,7 @@ fn cursor_view(overlay: &Overlay, theme: &Theme, width: f32) -> Column {
     let current_size = settings.text("cursor_size");
     let shake_enabled = settings.flag("shake_cursor");
     let glow_enabled = settings.flag("cursor_glow");
+    let glow_shape = settings.text("cursor_glow_shape");
     let glow_mode = settings.text("cursor_glow_mode");
     let glow_color = settings.text("cursor_glow_color");
 
@@ -652,6 +653,7 @@ fn cursor_view(overlay: &Overlay, theme: &Theme, width: f32) -> Column {
     items.push(Box::new(section_label("Cursor glow", theme, width)));
     items.push(Box::new(glow_card(overlay, theme, glow_enabled, width)));
     if glow_enabled {
+        items.push(Box::new(glow_shape_row(overlay, theme, glow_shape, width)));
         items.push(Box::new(glow_mode_row(overlay, theme, glow_mode, width)));
         if glow_mode == "custom" {
             items.push(Box::new(glow_colors_row(overlay, theme, glow_color, width)));
@@ -742,6 +744,51 @@ fn glow_card(overlay: &Overlay, theme: &Theme, enabled: bool, width: f32) -> Rec
         .on_hover(move |inside| hover(hover_name.clone(), inside))
         .on_click(move |_| Settings::set("cursor_glow", !enabled))
         .child(content)
+}
+
+fn glow_shape_row(overlay: &Overlay, theme: &Theme, current_shape: &str, width: f32) -> Row {
+    let shapes = [("Circle fade", "circle"), ("Outline", "outline")];
+    let count = shapes.len() as f32;
+    let gap = 6.0;
+    let pill_width = (width - gap * (count - 1.0)) / count;
+
+    let mut pills: Vec<Box<dyn Widget>> = Vec::new();
+
+    for (label, shape) in shapes {
+        let active = current_shape == shape;
+        let hover_name = format!("appearance:glow_shape:{shape}");
+
+        let fill = if active {
+            theme.accent
+        } else if hovered(overlay, &hover_name) {
+            theme.hover_surface
+        } else {
+            theme.surface
+        };
+
+        let text_color = if active { theme.on_accent } else { theme.text };
+
+        let pill = Rectangle::new()
+            .width(pill_width)
+            .height(28.0)
+            .radius(14.0)
+            .fill(fill)
+            .cursor(Pointer)
+            .on_hover(move |inside| hover(hover_name.clone(), inside))
+            .on_click(move |_| Settings::set("cursor_glow_shape", shape))
+            .align_child(Center, Center)
+            .child(
+                Text::new(label)
+                    .size(11.0)
+                    .font(fonts::BODY)
+                    .weight(if active { Weight::SemiBold } else { Weight::Regular })
+                    .color(text_color),
+            );
+
+        pills.push(Box::new(pill));
+    }
+
+    Row::new(pills).width(width).height(28.0).gap(gap).justify(SpaceBetween).align(Center)
 }
 
 fn glow_mode_row(overlay: &Overlay, theme: &Theme, current_mode: &str, width: f32) -> Row {

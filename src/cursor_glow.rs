@@ -34,10 +34,11 @@ pub fn parse_hex_color(hex: &str) -> (u8, u8, u8) {
     }
 }
 
-pub fn ensure_glow_theme(base_theme: &str, color_hex: &str, radius: usize) -> Result<String, String> {
+pub fn ensure_glow_theme(base_theme: &str, color_hex: &str, shape: &str, radius: usize) -> Result<String, String> {
     let (r, g, b) = parse_hex_color(color_hex);
     let clean_hex = format!("{r:02x}{g:02x}{b:02x}");
-    let theme_name = format!("{base_theme}-glow-{clean_hex}-r{radius}");
+    let clean_shape = if shape == "outline" { "outline" } else { "circle" };
+    let theme_name = format!("{base_theme}-glow-{clean_hex}-{clean_shape}-r{radius}");
 
     let home = env::var("HOME").unwrap_or_default();
     let theme_dir = PathBuf::from(&home).join(".local/share/icons").join(&theme_name);
@@ -95,7 +96,7 @@ pub fn ensure_glow_theme(base_theme: &str, color_hex: &str, radius: usize) -> Re
                                 let _ = unix_fs::symlink(target, &dst_path);
                             }
                         } else if meta.is_file() {
-                            let _ = process_cursor_file(&path, &dst_path, (r, g, b), radius);
+                            let _ = process_cursor_file(&path, &dst_path, (r, g, b), clean_shape, radius);
                         }
                     }
                 }
@@ -106,11 +107,17 @@ pub fn ensure_glow_theme(base_theme: &str, color_hex: &str, radius: usize) -> Re
     Ok(theme_name)
 }
 
-fn process_cursor_file(src: &Path, dst: &Path, glow_rgb: (u8, u8, u8), radius: usize) -> Result<(), String> {
+fn process_cursor_file(
+    src: &Path,
+    dst: &Path,
+    glow_rgb: (u8, u8, u8),
+    glow_shape: &str,
+    radius: usize,
+) -> Result<(), String> {
     let chunks = read_xcursor_file(src)?;
     let processed: Vec<ImageChunk> = chunks
         .iter()
-        .map(|c| process_image_chunk(c, glow_rgb, radius))
+        .map(|c| process_image_chunk(c, glow_rgb, glow_shape, radius))
         .collect();
     write_xcursor_file(dst, &processed)?;
     Ok(())
@@ -119,6 +126,7 @@ fn process_cursor_file(src: &Path, dst: &Path, glow_rgb: (u8, u8, u8), radius: u
 fn process_image_chunk(
     chunk: &ImageChunk,
     glow_rgb: (u8, u8, u8),
+    glow_shape: &str,
     glow_radius: usize,
 ) -> ImageChunk {
     let w = chunk.width as usize;
@@ -127,118 +135,228 @@ fn process_image_chunk(
         return chunk.clone();
     }
 
-    // Dynamic padding scaled to cursor dimension and chosen radius
-    let pad = ((w as f32 * 0.22).round() as usize).max(glow_radius + 2).min(32);
-    let new_w = w + 2 * pad;
-    let new_h = h + 2 * pad;
-    let new_xhot = chunk.xhot + pad as u32;
-    let new_yhot = chunk.yhot + pad as u32;
+    if glow_shape == "circle" {
+        // Calculate visual center of mass of cursor alpha pixels
+        let mut total_a = 0.0f32;
+        let mut sum_x = 0.0f32;
+        let mut sum_y = 0.0f32;
 
-    let mut grid_a = vec![0.0f32; new_w * new_h];
-    let mut orig_pixels = vec![[0u8; 4]; new_w * new_h];
-
-    for y in 0..h {
-        let row_src = y * w * 4;
-        let row_dst = (y + pad) * new_w + pad;
-        for x in 0..w {
-            let src_idx = row_src + x * 4;
-            let b = chunk.pixels[src_idx];
-            let g = chunk.pixels[src_idx + 1];
-            let r = chunk.pixels[src_idx + 2];
-            let a = chunk.pixels[src_idx + 3];
-
-            let dst_idx = row_dst + x;
-            orig_pixels[dst_idx] = [b, g, r, a];
-            grid_a[dst_idx] = a as f32 / 255.0;
-        }
-    }
-
-    // Gaussian blur kernel
-    let sigma = (pad as f32 * 0.45).max(1.5);
-    let k_radius = (sigma * 2.2).ceil() as usize;
-    let mut kernel = Vec::with_capacity(2 * k_radius + 1);
-    let mut k_sum = 0.0f32;
-    for i in -(k_radius as isize)..=(k_radius as isize) {
-        let val = (-((i * i) as f32) / (2.0 * sigma * sigma)).exp();
-        kernel.push(val);
-        k_sum += val;
-    }
-    for k in &mut kernel {
-        *k /= k_sum;
-    }
-
-    // Horizontal pass
-    let mut temp_h = vec![0.0f32; new_w * new_h];
-    for y in 0..new_h {
-        let row_offset = y * new_w;
-        for x in 0..new_w {
-            let mut sum = 0.0f32;
-            for (ki, &weight) in kernel.iter().enumerate() {
-                let kx = x as isize + ki as isize - k_radius as isize;
-                if kx >= 0 && (kx as usize) < new_w {
-                    sum += grid_a[row_offset + kx as usize] * weight;
+        for y in 0..h {
+            let row_src = y * w * 4;
+            for x in 0..w {
+                let a = chunk.pixels[row_src + x * 4 + 3] as f32 / 255.0;
+                if a > 0.1 {
+                    total_a += a;
+                    sum_x += x as f32 * a;
+                    sum_y += y as f32 * a;
                 }
             }
-            temp_h[row_offset + x] = sum;
         }
-    }
 
-    // Vertical pass
-    let mut blur_a = vec![0.0f32; new_w * new_h];
-    for y in 0..new_h {
-        for x in 0..new_w {
-            let mut sum = 0.0f32;
-            for (ki, &weight) in kernel.iter().enumerate() {
-                let ky = y as isize + ki as isize - k_radius as isize;
-                if ky >= 0 && (ky as usize) < new_h {
-                    sum += temp_h[ky as usize * new_w + x] * weight;
-                }
-            }
-            blur_a[y * new_w + x] = sum;
-        }
-    }
+        let com_x = if total_a > 0.0 { sum_x / total_a } else { w as f32 / 2.0 };
+        let com_y = if total_a > 0.0 { sum_y / total_a } else { h as f32 / 2.0 };
 
-    // Composite: crisp original pointer OVER smooth luminous halo
-    let (gr, gg, gb) = glow_rgb;
-    let mut out_pixels = Vec::with_capacity(new_w * new_h * 4);
-
-    for idx in 0..(new_w * new_h) {
-        let [ob, og, or_, oa] = orig_pixels[idx];
-        let oa_f = oa as f32 / 255.0;
-        let ga_f = (blur_a[idx] * 1.85).min(1.0);
-
-        let (fb, fg, fr, fa) = if oa_f >= 0.99 {
-            (ob, og, or_, oa)
-        } else if oa_f > 0.0 {
-            let out_a = oa_f + ga_f * (1.0 - oa_f);
-            let safe_a = out_a.max(0.001);
-            let r = ((or_ as f32 * oa_f + gr as f32 * ga_f * (1.0 - oa_f)) / safe_a).clamp(0.0, 255.0) as u8;
-            let g = ((og as f32 * oa_f + gg as f32 * ga_f * (1.0 - oa_f)) / safe_a).clamp(0.0, 255.0) as u8;
-            let b = ((ob as f32 * oa_f + gb as f32 * ga_f * (1.0 - oa_f)) / safe_a).clamp(0.0, 255.0) as u8;
-            let a = (out_a * 255.0).min(255.0) as u8;
-            (b, g, r, a)
-        } else {
-            let a = (ga_f * 255.0).min(255.0) as u8;
-            (gb, gg, gr, a)
+        let mult = match glow_radius {
+            3 => 0.55,
+            8 => 0.95,
+            _ => 0.75,
         };
+        let circle_r = w as f32 * mult;
+        let pad = ((circle_r + 6.0).ceil() as usize).max(8).min(48);
 
-        out_pixels.push(fb);
-        out_pixels.push(fg);
-        out_pixels.push(fr);
-        out_pixels.push(fa);
-    }
+        let new_w = w + 2 * pad;
+        let new_h = h + 2 * pad;
+        let new_xhot = chunk.xhot + pad as u32;
+        let new_yhot = chunk.yhot + pad as u32;
 
-    ImageChunk {
-        header_size: 36,
-        chunk_type: chunk.chunk_type,
-        chunk_subtype: chunk.chunk_subtype,
-        version: chunk.version,
-        width: new_w as u32,
-        height: new_h as u32,
-        xhot: new_xhot,
-        yhot: new_yhot,
-        delay: chunk.delay,
-        pixels: out_pixels,
+        let cx = com_x + pad as f32;
+        let cy = com_y + pad as f32;
+
+        let mut orig_pixels = vec![[0u8; 4]; new_w * new_h];
+        let mut orig_a = vec![0.0f32; new_w * new_h];
+
+        for y in 0..h {
+            let row_src = y * w * 4;
+            let row_dst = (y + pad) * new_w + pad;
+            for x in 0..w {
+                let src_idx = row_src + x * 4;
+                let b = chunk.pixels[src_idx];
+                let g = chunk.pixels[src_idx + 1];
+                let r = chunk.pixels[src_idx + 2];
+                let a = chunk.pixels[src_idx + 3];
+
+                let dst_idx = row_dst + x;
+                orig_pixels[dst_idx] = [b, g, r, a];
+                orig_a[dst_idx] = a as f32 / 255.0;
+            }
+        }
+
+        let (gr, gg, gb) = glow_rgb;
+        let mut out_pixels = Vec::with_capacity(new_w * new_h * 4);
+
+        for y in 0..new_h {
+            for x in 0..new_w {
+                let idx = y * new_w + x;
+                let dist = ((x as f32 - cx).powi(2) + (y as f32 - cy).powi(2)).sqrt();
+                let ga_f = if dist < circle_r {
+                    let norm_d = dist / circle_r;
+                    let fade = 0.5 * (1.0 + (std::f32::consts::PI * norm_d).cos());
+                    (fade * 0.85).min(1.0)
+                } else {
+                    0.0
+                };
+
+                let [ob, og, or_, oa] = orig_pixels[idx];
+                let oa_f = orig_a[idx];
+
+                let (fb, fg, fr, fa) = if oa_f >= 0.99 {
+                    (ob, og, or_, oa)
+                } else if oa_f > 0.0 {
+                    let out_a = oa_f + ga_f * (1.0 - oa_f);
+                    let safe_a = out_a.max(0.001);
+                    let r = ((or_ as f32 * oa_f + gr as f32 * ga_f * (1.0 - oa_f)) / safe_a).clamp(0.0, 255.0) as u8;
+                    let g = ((og as f32 * oa_f + gg as f32 * ga_f * (1.0 - oa_f)) / safe_a).clamp(0.0, 255.0) as u8;
+                    let b = ((ob as f32 * oa_f + gb as f32 * ga_f * (1.0 - oa_f)) / safe_a).clamp(0.0, 255.0) as u8;
+                    let a = (out_a * 255.0).min(255.0) as u8;
+                    (b, g, r, a)
+                } else {
+                    let a = (ga_f * 255.0).min(255.0) as u8;
+                    (gb, gg, gr, a)
+                };
+
+                out_pixels.push(fb);
+                out_pixels.push(fg);
+                out_pixels.push(fr);
+                out_pixels.push(fa);
+            }
+        }
+
+        ImageChunk {
+            header_size: 36,
+            chunk_type: chunk.chunk_type,
+            chunk_subtype: chunk.chunk_subtype,
+            version: chunk.version,
+            width: new_w as u32,
+            height: new_h as u32,
+            xhot: new_xhot,
+            yhot: new_yhot,
+            delay: chunk.delay,
+            pixels: out_pixels,
+        }
+    } else {
+        // Outline mode: Gaussian blur contour hugging pointer silhouette
+        let pad = ((w as f32 * 0.22).round() as usize).max(glow_radius + 2).min(32);
+        let new_w = w + 2 * pad;
+        let new_h = h + 2 * pad;
+        let new_xhot = chunk.xhot + pad as u32;
+        let new_yhot = chunk.yhot + pad as u32;
+
+        let mut grid_a = vec![0.0f32; new_w * new_h];
+        let mut orig_pixels = vec![[0u8; 4]; new_w * new_h];
+
+        for y in 0..h {
+            let row_src = y * w * 4;
+            let row_dst = (y + pad) * new_w + pad;
+            for x in 0..w {
+                let src_idx = row_src + x * 4;
+                let b = chunk.pixels[src_idx];
+                let g = chunk.pixels[src_idx + 1];
+                let r = chunk.pixels[src_idx + 2];
+                let a = chunk.pixels[src_idx + 3];
+
+                let dst_idx = row_dst + x;
+                orig_pixels[dst_idx] = [b, g, r, a];
+                grid_a[dst_idx] = a as f32 / 255.0;
+            }
+        }
+
+        // Gaussian blur kernel
+        let sigma = (pad as f32 * 0.45).max(1.5);
+        let k_radius = (sigma * 2.2).ceil() as usize;
+        let mut kernel = Vec::with_capacity(2 * k_radius + 1);
+        let mut k_sum = 0.0f32;
+        for i in -(k_radius as isize)..=(k_radius as isize) {
+            let val = (-((i * i) as f32) / (2.0 * sigma * sigma)).exp();
+            kernel.push(val);
+            k_sum += val;
+        }
+        for k in &mut kernel {
+            *k /= k_sum;
+        }
+
+        // Horizontal pass
+        let mut temp_h = vec![0.0f32; new_w * new_h];
+        for y in 0..new_h {
+            let row_offset = y * new_w;
+            for x in 0..new_w {
+                let mut sum = 0.0f32;
+                for (ki, &weight) in kernel.iter().enumerate() {
+                    let kx = x as isize + ki as isize - k_radius as isize;
+                    if kx >= 0 && (kx as usize) < new_w {
+                        sum += grid_a[row_offset + kx as usize] * weight;
+                    }
+                }
+                temp_h[row_offset + x] = sum;
+            }
+        }
+
+        // Vertical pass
+        let mut blur_a = vec![0.0f32; new_w * new_h];
+        for y in 0..new_h {
+            for x in 0..new_w {
+                let mut sum = 0.0f32;
+                for (ki, &weight) in kernel.iter().enumerate() {
+                    let ky = y as isize + ki as isize - k_radius as isize;
+                    if ky >= 0 && (ky as usize) < new_h {
+                        sum += temp_h[ky as usize * new_w + x] * weight;
+                    }
+                }
+                blur_a[y * new_w + x] = sum;
+            }
+        }
+
+        // Composite: crisp original pointer OVER smooth luminous halo
+        let (gr, gg, gb) = glow_rgb;
+        let mut out_pixels = Vec::with_capacity(new_w * new_h * 4);
+
+        for idx in 0..(new_w * new_h) {
+            let [ob, og, or_, oa] = orig_pixels[idx];
+            let oa_f = oa as f32 / 255.0;
+            let ga_f = (blur_a[idx] * 1.85).min(1.0);
+
+            let (fb, fg, fr, fa) = if oa_f >= 0.99 {
+                (ob, og, or_, oa)
+            } else if oa_f > 0.0 {
+                let out_a = oa_f + ga_f * (1.0 - oa_f);
+                let safe_a = out_a.max(0.001);
+                let r = ((or_ as f32 * oa_f + gr as f32 * ga_f * (1.0 - oa_f)) / safe_a).clamp(0.0, 255.0) as u8;
+                let g = ((og as f32 * oa_f + gg as f32 * ga_f * (1.0 - oa_f)) / safe_a).clamp(0.0, 255.0) as u8;
+                let b = ((ob as f32 * oa_f + gb as f32 * ga_f * (1.0 - oa_f)) / safe_a).clamp(0.0, 255.0) as u8;
+                let a = (out_a * 255.0).min(255.0) as u8;
+                (b, g, r, a)
+            } else {
+                let a = (ga_f * 255.0).min(255.0) as u8;
+                (gb, gg, gr, a)
+            };
+
+            out_pixels.push(fb);
+            out_pixels.push(fg);
+            out_pixels.push(fr);
+            out_pixels.push(fa);
+        }
+
+        ImageChunk {
+            header_size: 36,
+            chunk_type: chunk.chunk_type,
+            chunk_subtype: chunk.chunk_subtype,
+            version: chunk.version,
+            width: new_w as u32,
+            height: new_h as u32,
+            xhot: new_xhot,
+            yhot: new_yhot,
+            delay: chunk.delay,
+            pixels: out_pixels,
+        }
     }
 }
 
