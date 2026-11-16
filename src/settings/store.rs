@@ -329,7 +329,10 @@ impl Settings {
 }
 
 pub fn active_cursor_theme() -> String {
-    let settings = Settings::read();
+    active_cursor_theme_with(&Settings::read())
+}
+
+pub fn active_cursor_theme_with(settings: &Settings) -> String {
     let base_theme = settings.text("cursor_theme");
     if settings.flag("cursor_glow") {
         let mode = settings.text("cursor_glow_mode");
@@ -354,7 +357,7 @@ pub fn refresh_cursor_appearance() {
 }
 
 fn apply_appearance(settings: &Settings) {
-    let theme = active_cursor_theme();
+    let theme = active_cursor_theme_with(settings);
     let size = settings.text("cursor_size");
     let font = settings.text("font_family");
 

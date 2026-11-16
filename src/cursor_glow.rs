@@ -38,7 +38,7 @@ pub fn ensure_glow_theme(base_theme: &str, color_hex: &str, shape: &str, radius:
     let (r, g, b) = parse_hex_color(color_hex);
     let clean_hex = format!("{r:02x}{g:02x}{b:02x}");
     let clean_shape = if shape == "outline" { "outline" } else { "circle" };
-    let theme_name = format!("{base_theme}-glow-{clean_hex}-{clean_shape}-r{radius}");
+    let theme_name = format!("{base_theme}-glow-v2-{clean_hex}-{clean_shape}-r{radius}");
 
     let home = env::var("HOME").unwrap_or_default();
     let theme_dir = PathBuf::from(&home).join(".local/share/icons").join(&theme_name);
@@ -157,9 +157,9 @@ fn process_image_chunk(
         let com_y = if total_a > 0.0 { sum_y / total_a } else { h as f32 / 2.0 };
 
         let mult = match glow_radius {
-            3 => 0.55,
-            8 => 0.95,
-            _ => 0.75,
+            3 => 0.60,
+            8 => 1.00,
+            _ => 0.80,
         };
         let circle_r = w as f32 * mult;
         let pad = ((circle_r + 6.0).ceil() as usize).max(8).min(48);
@@ -191,6 +191,10 @@ fn process_image_chunk(
             }
         }
 
+        // PREMULTIPLIED ALPHA COMPOSITING
+        // Wayland and Xcursor require WL_SHM_FORMAT_ARGB8888 with premultiplied alpha.
+        // If colors are not premultiplied, the compositor adds raw full-intensity RGB
+        // even when alpha is low, causing an abrupt hard edge.
         let (gr, gg, gb) = glow_rgb;
         let mut out_pixels = Vec::with_capacity(new_w * new_h * 4);
 
@@ -200,29 +204,25 @@ fn process_image_chunk(
                 let dist = ((x as f32 - cx).powi(2) + (y as f32 - cy).powi(2)).sqrt();
                 let ga_f = if dist < circle_r {
                     let norm_d = dist / circle_r;
+                    // S-curve cosine fade out with 0 slope at edge
                     let fade = 0.5 * (1.0 + (std::f32::consts::PI * norm_d).cos());
                     (fade * 0.85).min(1.0)
                 } else {
                     0.0
                 };
 
-                let [ob, og, or_, oa] = orig_pixels[idx];
+                let [ob, og, or_, _oa] = orig_pixels[idx];
                 let oa_f = orig_a[idx];
+                let one_minus_oa = 1.0 - oa_f;
 
-                let (fb, fg, fr, fa) = if oa_f >= 0.99 {
-                    (ob, og, or_, oa)
-                } else if oa_f > 0.0 {
-                    let out_a = oa_f + ga_f * (1.0 - oa_f);
-                    let safe_a = out_a.max(0.001);
-                    let r = ((or_ as f32 * oa_f + gr as f32 * ga_f * (1.0 - oa_f)) / safe_a).clamp(0.0, 255.0) as u8;
-                    let g = ((og as f32 * oa_f + gg as f32 * ga_f * (1.0 - oa_f)) / safe_a).clamp(0.0, 255.0) as u8;
-                    let b = ((ob as f32 * oa_f + gb as f32 * ga_f * (1.0 - oa_f)) / safe_a).clamp(0.0, 255.0) as u8;
-                    let a = (out_a * 255.0).min(255.0) as u8;
-                    (b, g, r, a)
-                } else {
-                    let a = (ga_f * 255.0).min(255.0) as u8;
-                    (gb, gg, gr, a)
-                };
+                let glow_r = gr as f32 * ga_f * one_minus_oa;
+                let glow_g = gg as f32 * ga_f * one_minus_oa;
+                let glow_b = gb as f32 * ga_f * one_minus_oa;
+
+                let fr = ((or_ as f32 + glow_r).min(255.0)).round() as u8;
+                let fg = ((og as f32 + glow_g).min(255.0)).round() as u8;
+                let fb = ((ob as f32 + glow_b).min(255.0)).round() as u8;
+                let fa = (((oa_f + ga_f * one_minus_oa) * 255.0).min(255.0)).round() as u8;
 
                 out_pixels.push(fb);
                 out_pixels.push(fg);
@@ -315,29 +315,24 @@ fn process_image_chunk(
             }
         }
 
-        // Composite: crisp original pointer OVER smooth luminous halo
+        // PREMULTIPLIED ALPHA COMPOSITING
         let (gr, gg, gb) = glow_rgb;
         let mut out_pixels = Vec::with_capacity(new_w * new_h * 4);
 
         for idx in 0..(new_w * new_h) {
             let [ob, og, or_, oa] = orig_pixels[idx];
             let oa_f = oa as f32 / 255.0;
-            let ga_f = (blur_a[idx] * 1.85).min(1.0);
+            let ga_f = (blur_a[idx] * 1.6).min(1.0);
 
-            let (fb, fg, fr, fa) = if oa_f >= 0.99 {
-                (ob, og, or_, oa)
-            } else if oa_f > 0.0 {
-                let out_a = oa_f + ga_f * (1.0 - oa_f);
-                let safe_a = out_a.max(0.001);
-                let r = ((or_ as f32 * oa_f + gr as f32 * ga_f * (1.0 - oa_f)) / safe_a).clamp(0.0, 255.0) as u8;
-                let g = ((og as f32 * oa_f + gg as f32 * ga_f * (1.0 - oa_f)) / safe_a).clamp(0.0, 255.0) as u8;
-                let b = ((ob as f32 * oa_f + gb as f32 * ga_f * (1.0 - oa_f)) / safe_a).clamp(0.0, 255.0) as u8;
-                let a = (out_a * 255.0).min(255.0) as u8;
-                (b, g, r, a)
-            } else {
-                let a = (ga_f * 255.0).min(255.0) as u8;
-                (gb, gg, gr, a)
-            };
+            let one_minus_oa = 1.0 - oa_f;
+            let glow_r = gr as f32 * ga_f * one_minus_oa;
+            let glow_g = gg as f32 * ga_f * one_minus_oa;
+            let glow_b = gb as f32 * ga_f * one_minus_oa;
+
+            let fr = ((or_ as f32 + glow_r).min(255.0)).round() as u8;
+            let fg = ((og as f32 + glow_g).min(255.0)).round() as u8;
+            let fb = ((ob as f32 + glow_b).min(255.0)).round() as u8;
+            let fa = (((oa_f + ga_f * one_minus_oa) * 255.0).min(255.0)).round() as u8;
 
             out_pixels.push(fb);
             out_pixels.push(fg);
