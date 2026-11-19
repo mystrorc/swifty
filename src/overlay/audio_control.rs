@@ -353,7 +353,7 @@ fn query_devices() -> (Vec<AudioDevice>, Vec<AudioDevice>) {
     let text = String::from_utf8_lossy(&output.stdout);
     let mut sinks = Vec::new();
     let mut sources = Vec::new();
-    let mut section = 0; // 1 = sinks, 2 = sources
+    let mut section = 0; // 1 = sinks, 2 = sources, 3 = filters
 
     for line in text.lines() {
         if line.contains("Sinks:") {
@@ -362,8 +362,10 @@ fn query_devices() -> (Vec<AudioDevice>, Vec<AudioDevice>) {
         } else if line.contains("Sources:") {
             section = 2;
             continue;
-        } else if line.contains("Filters:")
-            || line.contains("Streams:")
+        } else if line.contains("Filters:") {
+            section = 3;
+            continue;
+        } else if line.contains("Streams:")
             || line.contains("Video")
             || line.contains("Settings")
         {
@@ -381,6 +383,12 @@ fn query_devices() -> (Vec<AudioDevice>, Vec<AudioDevice>) {
             continue;
         }
 
+        if section == 3 {
+            if !trimmed.contains("[Audio/Sink]") || trimmed.contains("Equalizer") {
+                continue;
+            }
+        }
+
         let is_default = trimmed.contains('*');
         let unstarred = trimmed.replace('*', "");
         let unstarred = unstarred.trim();
@@ -394,9 +402,13 @@ fn query_devices() -> (Vec<AudioDevice>, Vec<AudioDevice>) {
         };
 
         let name_part = rest.split('[').next().unwrap_or("").trim();
-        let name = name_part
+        let mut name = name_part
             .replace(" Analog Stereo", "")
             .replace(" (alsa)", "");
+
+        if name == "dual_soundbar" {
+            name = "Dell Dual Soundbars (L/R Pair)".to_string();
+        }
 
         if section == 2 && name.contains("Webcam") {
             continue;
@@ -408,11 +420,15 @@ fn query_devices() -> (Vec<AudioDevice>, Vec<AudioDevice>) {
             is_default,
         };
 
-        if section == 1 {
+        if section == 1 || section == 3 {
             sinks.push(dev);
         } else if section == 2 {
             sources.push(dev);
         }
+    }
+
+    if sinks.iter().any(|s| s.name.contains("Dell Dual Soundbars")) {
+        sinks.retain(|s| !s.name.contains("AC511"));
     }
 
     if sinks.iter().all(|s| !s.is_default) {
